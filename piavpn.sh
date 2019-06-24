@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## piavpn v0.1 Copyright (C) 2019 TaigaSan (taigasan@sdf.org)
+## piavpn v0.1 Copyright (C) 2019 TaigaSan Corp.
 #
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License Version 2 as published by
