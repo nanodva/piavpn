@@ -11,7 +11,10 @@ This is mainly an exercice. Run this at your own risk.
 
 Dependencies:
 ==========
-todo
+openvpn
+curl
+unzip
+
 
 Installation:
 ==========
@@ -25,7 +28,11 @@ $ sudo make install
 uninstall:
 $ sudo make uninstall
 
-
 Usage:
 ==========
-todo as well
+to open a VPN tunnel to pia:
+$ piavpn
+
+In the Future:
+==========
+
