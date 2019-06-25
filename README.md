@@ -1,23 +1,23 @@
 # piavpn
+# can we say something here ?
 
 piavpn v0.1:
 ==========
 
-It is a vpn manager for Private Internet Access VPN. This program is inspired by the pia' manager from d4rkcat.
-
-It is designed for Debian based distro, and is still on work. 
-This is mainly an exercice. Run this at your own risk.
+It is a vpn manager for Private Internet Access VPN. This program is inspired by the pia' manager from d4rkcat.\
+It is designed for Debian based distro, and is still on work.\
+This is mainly an exercice. Run this at your own risk.\
 
 
 Dependencies:
 ==========
 Required:
-`openvpn`
-`curl`
-`unzip`
+- openvpn
+- curl
+- unzip
 
 Suggested:
-`dnsmasq`
+- dnsmasq
 
 to manually install dependencies:
 
@@ -56,22 +56,20 @@ to open a VPN tunnel to pia:
 Security and Privacy:
 ==========
 Do mind:
-- credentials are store in clear, in /etc/piavpn/credentials.d/
+- credentials are store in clear, in /etc/piavpn/credentials.d/\
 	this should change in the future
-- This program does not manage DNS.
-	DNS leaks may occurs. Your ISP may see your navigation.
-	please check that here:
-			https://ipleak.net
-			https://dnsleaktest.com
-	to prevent this, you could install dnsmasq, and use PIA DomainNameServer.
+- This program does not manage DNS.\
+	DNS leaks may occurs. Your ISP may see your navigation.\
+	please check that here:\
+			https://ipleak.net \
+			https://dnsleaktest.com \
+	to prevent this, you could install dnsmasq, and use PIA DomainNameServer.\
 	See DnsMasq Section below
 
 
 Using Dnsmasq:
 ==========
 Dnsmasq is an easy lightweight dns server.\
-It provides many features, and can increase navigation speed,
-as well as security.
 
 installing dnsmasq:
 	
@@ -108,3 +106,4 @@ check it works:
 In the Future:
 ==========
 we'll see
+	if there is a future
