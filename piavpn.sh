@@ -12,170 +12,26 @@
 ## GNU General Public License at (http://www.gnu.org/licenses/) for
 ## more details.
 
+### DECLARATIONS ###
+# all folders name depends of Pname
 PNAME=$(basename $0 .sh)
-# LIBPATH="/etc/${PNAME}"
+# external file for values, to share with other programs
 . globals.conf
 
-
-# Only root can play with network.
-if [[ $(id -u) != 0 ]]; then
-	echo "$ERROR Script must be run as root."
-	exit 1
-fi
-
-# debug=true
-debug=false
+# Flags:
+# highly verbose mode
+debug=true
+# do not ask for protocol or server
+auto=true
+auto=false
 
 
 
-fupdateservers()
-{
-	fcurlzip()
-	# download and extract zip file
-	{
-		zip=$1
-		url=${PIA_URL}/openvpn/${zip}
-		$debug && printf "downloading %s\n" $url
-		# ask server and manage HTTP response
-		response=$(curl -vo $zip $url |& grep -oE "HTTP/1.1 [0-9]{3}[a-Z ]+")
-		read -r xx status info <<< $response
+### FUNCTIONS ###
 
-		# status 200 is ok. 
-		if [[ $status == "200" ]]; then
-			unzip -qo $zip
-			rm $zip
-			return 0
-		else
-			printf "'%s' download failed: %s %s\n" "$url" "$status" "$info"
-			rm $zip
-			return 1
-		fi
-	}
-
-	# retrieve servers list and data from PIA zip packs
-	printf "updating servers data\n"
-	
-	# files will be extracted in tmp
-	# concatenate at the end
-	tmpdir=$(mktemp -d)
-	pushd . >/dev/null
-	cd $tmpdir
-	# temp storage place for servers conf
-	mkdir servers 
-
-	# parse server IP and UDP port
-	if ! (fcurlzip "openvpn-ip.zip"); then
-		return 1
-	else
-		# UDP_PORT=$(cat "$(ls ./*.ovpn | head -n1)" | grep -m1 ^remote | awk '{print $3}')
-		while read file; do
-			name=$(basename "$file" .ovpn)
-			# ip=$(cat "$file" | grep -m1 ^remote | awk '{print $2}')
-			read -r xx ip port <<< $(cat "$file" | grep -m1 ^remote )
-			datafile="./servers/${name}"
-			cat > "$datafile" <<-EOF
-				[${name}]
-				name="${name}"
-				ip=$ip
-				udp_port=${port}
-			EOF
-			# clean
-			rm "$file"
-		done <<< $(ls *.ovpn)
-		$debug && printf " ... ip - ok\n"
-		$debug && printf " ... udp ports - ok\n"
-	fi
-
-	# parse server url and TCP port
-	if ! (fcurlzip "openvpn-tcp.zip"); then
-		return 1
-	else
-		# TCP_PORT=$(cat "$(ls ./*.ovpn | head -n1)" | grep -m1 ^remote | awk '{print $3}')
-		
-		# get servers name and url, as well as default certificates
-		while read file; do
-			name=$(basename "$file" .ovpn)
-			# url=$(cat "$file" | grep -m1 ^remote | awk '{print $2}')
-			read -r xx url port <<< $(cat "$file" | grep -m1 ^remote )
-			datafile="./servers/${name}"
-			cat >> "$datafile" <<-EOF
-				url=${url}
-				tcp_port=${port}
-			EOF
-			# clean
-			rm "$file"
-		done <<< $(ls *.ovpn)
-		$debug && printf " ... url - ok\n"
-		$debug && printf " ... tcp ports - ok\n"
-	fi
-
-	# parse strong UDP port
-	if ! (fcurlzip "openvpn-strong.zip"); then
-		return 1
-	else
-		# UDP_SPORT=$(cat "$(ls ./*.ovpn | head -n1)" | grep -m1 ^remote | awk '{print $3}')
-		while read file; do
-			name=$(basename "$file" .ovpn)
-			read -r xx xx port <<< $(cat "$file" | grep -m1 ^remote )
-			datafile="./servers/${name}"
-			cat >> "$datafile" <<-EOF
-				udps_port=${port}
-			EOF
-			# clean
-			rm "$file"
-		done <<< $(ls *.ovpn)
-		$debug && printf " ... udp strong ports - ok\n"
-	fi
-
-	# parse strong TCP port
-	if ! (fcurlzip "openvpn-strong-tcp.zip"); then
-		return 1
-	else
-		# TCP_SPORT=$(cat "$(ls ./*.ovpn | head -n1)" | grep -m1 ^remote | awk '{print $3}')
-		while read file; do
-			name=$(basename "$file" .ovpn)
-			read -r xx xx port <<< $(cat "$file" | grep -m1 ^remote )
-			datafile="./servers/${name}"
-			cat >> "$datafile" <<-EOF
-				tcps_port=${port}
-			EOF
-			# clean
-			rm "$file"
-		done <<< $(ls *.ovpn)
-		$debug && printf " ... tcp strong ports - ok\n"
-	fi
-
-	# create servers list
-	cat > $SRV_CONF <<-EOF
-		# this file is auto-generated with ${PNAME}
-		# any changes will be overwritten
-
-	EOF
-	# concatenate all config files in ./servers
-	while read file; do
-		cat "$file" >> $SRV_CONF
-		printf "\n" >> $SRV_CONF
-	done <<< $(ls servers/*)
-
-	# $debug && printf "set ports UDP:%s UDPS:%s TCP:%s TCPS:%s\n"\
-	# 		$UDP_PORT $UDP_SPORT $TCP_PORT $TCP_SPORT
-
-	# save certificates
-	$debug && printf "saving certificates:\n"
-	for certif in $(ls *.crt *.pem | sort ); do
-		$debug && printf "... %s\n" $certif
-		mv $certif $LIBPATH
-	done
-
-	# clean
-	popd > /dev/null
-	rm -r $tmpdir
-	return 0
-}
 
 ftestportforwarding()
 {
-
 	echo "test port forwarding"
 	cd $VPNPATH
 	while read -r NAME URL; do
@@ -190,112 +46,43 @@ ftestportforwarding()
 	exit
 }
 
-finit_log() {
-	# make a clean new log at each start
-	log_dir=$(dirname $LOG)
-	# rm -fr $log_dir
-	mkdir -p $log_dir
-	echo "----------------" > $LOG
-	echo "init log" $(date) >> $LOG
-}
 
-finitcheck()
+
+
+
+f_parse_ovpn_output()
 {
-	# log
-	finit_log
+	# active filter for openvpn stdout
+	# print both to log and terminal
 
-	# All data files are stored here
-	if [[ ! -d $LIBPATH ]]; then
-		printf "make dir '%s'\n" $LIBPATH
-		mkdir -p $LIBPATH
-	fi
+	# split line in date, info
+	while read -r d m n h y info; do
+		# print to log
+		# printf "openvpn: %s\n" "$info" >> $LOG
+		log "openvpn: %s" "$info"
+		
+		if [[ "$info" =~ "Attempting to establish" ]]; then
+			info "connecting..."
+			status="connecting"
+		elif [[ "$info" =~ ^(TCP|UDP) ]]; then
+			info=$(echo "$info" | tail -c+4)
+			if [[ "$info" =~ "connection established" ]]; then
+				info "connected"
+				status="connected"
+			fi
+		elif [[ "$info" =~ 'failed' ]]; then
 
-	# check server list
-	if [[ ! -f $SRV_CONF ]]; then
-		if fupdateservers; then
-			printf "update succeed\n\n"
-		else
-			printf "update failed\n\n"
-			return 1
-		fi
-	fi
-
-	# ask for credentials if not stored yet
-	fcheck_credentials
-
-	# printf "init succeed\n"
-	return 0
-}
-
-fcheck_credentials()
-{
-	# credentials are securely stored. for auto login
-	dirpath=$(dirname $CREDENTIALS)
-	
-	# change mode on each start
-	mkdir -p $dirpath && chmod 700 $dirpath
-	
-	if [[ ! -f $CREDENTIALS ]]; then
-		printf "your PIA credentials will be stored for further login\n"
-		printf "$PROMPT username: "
-		read USERNAME
-
-		printf "$PROMPT password: "
-		read -s PASSWORD && printf '\n'
-
-		printf "$USERNAME\n$PASSWORD\n" > $CREDENTIALS
-		unset USERNAME PASSWORD
-	fi
-	# force restricted mode at each start
-	chmod 400 $CREDENTIALS
-	return 0
-}
-
-fchoose_server()
-{
-	list=$(mktemp)
-	# servers names are closed in brackets []
-	cat $SRV_CONF | grep -E "^\[" | grep -oE "[a-Z ]+" > $list
-
-	# display a menu, return choosen value
-	IFS_BAK=$IFS && IFS=$'\n'
-	# count=$(cat $list | wc -l)
-	PS3="Select a server: "
-	select servername in $(cat $list); do
-		# printf "%d\n" $servername
-		if [[ ! $servername ]]; then
-			printf "invalid entry\n"
-			PS3="Enter the selected number: "
-			continue
-		else
-			IFS=$IFS_BAK
-			rm $list
-			break
+			error "failed: %s" "$info"
+		elif [[ "$info" =~ 'Initialization Sequence Completed' ]]; then
+			info "Tunnel initialization completed\n"
+			info -t "Tunnel initialized"
+			status="active"
 		fi
 	done
-
-	# return server name
-	echo $servername
 }
 
-fchoose_protocol()
-{
-	# protocol
-	PS3="Select a protocol: "
-	select protocol in "tcp" "strong tcp" "udp" "strong udp"; do
-		if [[ ! $protocol ]]; then
-			printf "invalid entry\n"
-			PS3="Enter the selected number: "
-			continue
-		else
-			break
-		fi
-	done
-	# return protocol name
-	echo $protocol
-}
 
-fmake_ovpn_config_file()
+f_make_ovpn_config_file()
 {
 	# parse config file for openvpn. print to stdout
 	make_template()
@@ -308,7 +95,7 @@ fmake_ovpn_config_file()
 		client
 		dev tun
 		proto ${proto}
-		remote ${ip} ${port}
+		remote ${url} ${port}
 		resolv-retry infinite
 		nobind
 		persist-key
@@ -346,19 +133,17 @@ fmake_ovpn_config_file()
 		# return field value for specific server from servers.txt
 		field=$1
 		cat $SRV_CONF |\
-			grep -A7 -E "$name" |\
+			grep -A7 -E "$servername" |\
 			grep $field |\
 			cut -d "=" -f2  
 	}
 
+	debug "parsing ovpn config file"
+
 	# parsing parameters
-	name="$1"
+	servername="$1"
 	protocol="$2"
-	# strenght="$3"
-
-	# info line
-	# printf "parsing ovpn config file for %s\n" "$name"
-
+		
 	# get server data
 	url=$(get_value url)
 	ip=$(get_value ip)
@@ -398,71 +183,365 @@ fmake_ovpn_config_file()
 	esac
 
 
-	printf '\n'
-	if $debug; then
-		printf "server: %s, %s, %s\n" "$name" "$url" "$ip"
-		printf "port: %s, %d\n" "$protocol" "$port"
-		printf "crl: %s, ca: %s\n" "$crl" "$ca"
-		printf "cipher:%s  sha:%s\n" "$cipher" "$hash"
-	else
-		printf "server: %s [%s]\n" "$url" "$ip"
-		printf "protocol:%s  port:%d\n\n" "$protocol" "$port"
-	fi
+	info "server: %s, %s [%s]" "$servername" "$url" "$ip"
+	info "protocol:%s  port:%d" "$protocol" "$port"
+	debug "crl: %s, ca: %s" "$crl" "$ca"
+	debug "cipher:%s  sha:%s" "$cipher" "$hash"
+	debug "\nParsed config file:"
+	debug "$(make_template)"
 
-	make_template > $VPN_CONF
+	# make_template > $VPN_CONF
+	make_template
 }
 
-fparse_ovpn_output()
+f_choose_protocol()
 {
-	while read -r d m n h y info; do
-		# print to log
-		printf "openvpn: %s\n" "$info" >> $LOG
-		
-		if [[ "$info" =~ "Attempting to establish" ]]; then
-			echo "connecting..."
-			status="connecting"
-		elif [[ "$info" =~ ^(TCP|UDP) ]]; then
-			info=$(echo "$info" | tail -c+4)
-			if [[ "$info" =~ "connection established" ]]; then
-				echo "connected"
-				status="connected"
-			fi
-		elif [[ "$info" =~ 'failed' ]]; then
+	# display a select menu, return choosen protocol
+	info -t -n "Protocol selection:"
 
-			echo "failed" $info
-		elif [[ "$info" =~ 'Initialization Sequence Completed' ]]; then
-			printf "Tunnel initialization completed\n"
-			status="active"
+	PS3="Select a protocol: "
+	select protocol in "tcp" "strong tcp" "udp" "strong udp"; do
+		if [[ ! $protocol ]]; then
+			error "invalid entry\n"
+			PS3="Enter the selected number [1-4] : "
+			continue
+		else
+			debug "protocol: %s" "$protocol"
+			break
+		fi
+	done
+
+	# return protocol name
+	echo $protocol
+}
+
+f_list_servers()
+{
+	# print servers list to stdout
+	# in server.conf, servers names are closed in brackets []
+	cat $SRV_CONF | grep -E "^\[" | grep -oE "[a-Z ]+"
+}
+
+f_choose_server_from_list()
+{
+	# display a menu, return choosen servername
+	info -t -n "Server selection:"
+
+	# split file on new line, not space characters
+	IFS_BAK=$IFS
+	IFS=$'\n'
+	PS3="Server number: "
+	select servername in $(f_list_servers); do
+		if [[ ! $servername ]]; then
+			error "invalid entry"
+			n=$(f_list_servers | wc -l)
+			PS3="Enter the selected number [1-$n] :" 
+			continue
+		else
+			debug "server: %s" "$servername"
+			break
+		fi
+	done
+	IFS=$IFS_BAK
+
+	# return server name
+	echo $servername
+}
+
+f_init_credentials()
+{
+	# credentials are (quite) securely stored. for auto login
+	dir=$(dirname $CREDENTIALS)
+	if [[ ! -d $dir ]]; then
+		install -d -m 700 $dir
+		# mkdir -p $dir && chmod 700 $dir
+	fi
+	
+	# double check dir access on each start
+	mode=$(stat -c %a $dir)
+	if [[ $mode != "700" ]]; then
+		error "${dir} mode must be 700. mode changed"
+		chmod 700 $dir
+	fi
+
+	if [[ ! -f $CREDENTIALS ]]; then
+		printf "your PIA credentials will be stored for further login\n"
+		printf "$PROMPT username: "
+		read USERNAME
+
+		printf "$PROMPT password: "
+		read -s PASSWORD && printf '\n'
+
+		printf "$USERNAME\n$PASSWORD\n" > $CREDENTIALS
+
+		unset USERNAME PASSWORD
+		chmod 400 $CREDENTIALS
+	fi
+
+	# force restricted mode at each start
+	mode=$(stat -c %a $CREDENTIALS)
+	if [[ $mode != "400" ]]; then
+		error "$CREDENTIALS mode must be 400. mode changed"
+		chmod 400 $CREDENTIALS
+	fi
+
+	return 0
+}
+
+f_update_servers_data()
+{
+	##Automaticaly updates server list
+	## all servers data will come from pia conf.ovpn files
+	## they are provided by PrivateInternetAccess in Zip files
+	## certificates are included in those zip archives
+	## see https://www.privateinternetaccess.com/openvpn
+	fcurlzip()
+	# download and extract zip file
+	{
+		zip=$1
+		url=${PIA_URL}/openvpn/${zip}
+		debug "downloading %s" $url
+
+		# ask server for file existence
+		# TODO: test modification date (curl -z --time-cond)
+		header=$(curl --silent --head $url)
+		response=$(head -n1 <<< $header)
+		read -r xx status info <<< $response
+		debug "response: %s %s" $status "$info"
+
+		# extract archive and clean
+		if [[ $status == "200" ]]; then
+			options="--silent"
+			$debug && options=""
+			curl $options -o $zip $url
+			unzip -qo $zip
+			rm $zip
+			return 0
+		else
+			error "'%s' download failed: %s %s\n" $url $status "$info"
+			rm $zip
+			return 1
+		fi
+	}
+
+	info "updating servers data"
+
+	
+	# files will be extracted in tmp
+	# concatenate at the end
+	tmpdir=$(mktemp -d)
+	cd $tmpdir
+
+	# make a file for each server in this folder
+	mkdir servers 
+	
+	taglist=("ip" "tcp" "strong" "strong-tcp")
+	# info to read dependis on zip file
+	# each expression will be evaluated ( cmd: eval )
+	# get IP and UDP port from ip.zip
+	ip_info='ip=${X}\\nudp_port=${Y}\\n'
+	# get URL and TCP port from tcp.zip
+	tcp_info='url=${X}\\ntcp_port=${Y}\\n'
+	# get secure UDP port from strong.zip
+	strong_info='udps_port=${Y}\\n'
+	# get secure TCP port from tcp-strong.zip
+	# ('-' is not allowed in name)
+	strong_tcp_info='tcps_port=${Y}\\n'
+
+	for tag in ${taglist[@]}; do
+		# loop through zip archives
+		zip="openvpn-${tag}.zip"
+		fcurlzip $zip || return 1
+
+		# useful info to store in server config file
+		infolist=$(echo ${tag}_info | tr '-' '_')
+		taginfo=$(eval echo \$${infolist})
+
+		while read file; do
+			# make a temp file for each server
+			name=$(basename "$file" .ovpn)
+			datafile="./servers/${name}"
+			# all files will be concatenated in one
+			if [[ ! -f "$datafile" ]]; then
+					echo "[$name]" > "$datafile"
+					echo "name=\"${name}\"" >> "$datafile"
+			fi
+
+			# stroe info
+			read -r none X Y <<< $(cat "$file" | grep -m1 ^remote )
+			# evaluation of the pre-evaluation
+			eval printf "$taginfo" >> "$datafile"
+			# clean
+			rm "$file"
+		done <<< $(ls *.ovpn)
+	done		
+
+	# concatenate all datas in one file
+	tmp_conf="$server/server.conf"
+	cat > $tmp_conf <<-EOF
+		# this file is auto-generated with ${PNAME}
+		# any changes will be overwritten
+	EOF
+	while read file; do
+		cat "$file" >> $tmp_conf
+		printf "\n" >> $tmp_conf
+	done <<< $(ls servers/*)
+
+	# certificates remains behind
+	debug "saving certificates:"
+	for certif in $(ls *.crt *.pem | sort ); do
+		debug ".. %s" $certif
+		mv $certif $LIBPATH
+	done
+
+	# move config file in place
+	mv $tmp_conf $SRV_CONF
+	
+
+	# clean
+	rm -r $tmpdir
+	return 0
+}
+
+f_init_servers_data()
+{
+	# check server list
+	if [[ ! -f $SRV_CONF ]]; then
+		if (f_update_servers_data); then
+			info "update succeed"
+		else
+			error "update failed"
+			return 1
+		fi
+	fi
+}
+
+f_init_log()
+{
+	## make a clean new log at each start
+	echo "----------------" > $LOG
+	echo "init log" $(date) >> $LOG
+}
+
+f_init_folders() 
+{
+	# status; checked
+	## RUNPATH: folder for process data(log, etc)
+	## LIBPATH: data files are stored there
+
+	for folder in $RUNPATH $LIBPATH; do
+		if [[ ! -d $folder ]]; then
+			debug "make dir '%s'\n" $folder
+			mkdir -p $folder
+			if [[ $? != 0 ]]; then
+				error "unable to make dir $folder"
+				return 1
+			fi
 		fi
 	done
 }
 
-flist_servers()
+f_init()
 {
-	# print servers list to stdout
-	cat $SRV_CONF | grep -E "^\[" | grep -oE "[a-Z ]+"
+	info "initializing..."
+
+	f_init_folders || return 1
+	f_init_log || return 1
+	f_init_servers_data || return 1
+
+	# ask for credentials if not stored yet
+	f_init_credentials || return 1
+
+	info "initialization succeed"
+	return 0
 }
 
-auto=true
+log()
+{
+	# print msg to log file $LOG
+	msg=$(printf "$@")
+	printf "%s\n" "$msg" >> $LOG
+}
 
-finitcheck || echo "init failed"
-printf '\n'
+info()
+{
+	## display info line to stderr
+	## usage: info [options] <message>
+	#
+	## message: is parsed with printf
+	tag="info"
+	fmt="${tag}: %s\n"
+	## options:
+	# case $1 in
+	for arg in $@; do
+	case $arg in
+	# -n 	: add a line break before message
+	'-n')	shift
+			printf "\n" >&2
+			;;
+	# title format, bold text
+	'-t')	shift
+			fmt="\033[1m%s\033[0m\n"
+			;;
+	esac
+	done
 
-if [[ $auto ]]; then
+	msg=$(printf "$@")
+	
+	printf "$fmt" "$msg" >&2
+}
+
+error()
+{
+	msg=$(printf "$@")
+	# printf "error: %s\n" "$msg"
+	printf "\033[91m%s\033[0m\n" "$msg" >&2
+}
+
+debug()
+{
+	# be more verbose when global debug=true
+	if $debug; then
+		msg=$(printf "$@")
+		# printf "debug: %s\n" "$msg"
+		printf "\033[2m%s\033[0m\n" "$msg" >&2
+	fi
+}
+
+## DMZ
+### MAIN BEGIN ###
+debug "this is debug %s" mode
+
+# Only root can change ip routes and network interfaces
+if [[ $(id -u) != 0 ]]; then
+	echo "$ERROR Script must be run as root."
+	exit 1
+fi
+
+if ! f_init; then
+	echo "unable to initialize"
+	exit 1
+fi
+
+if $auto ; then
 	# connect to closest server
 	servername=$(./diagnose.sh | head -n1)
 	protocol="tcp"
 else
 	# ask for server to use
-	servername=$(fchoose_server)
-	printf '\n'
-	protocol=$(fchoose_protocol)
+	servername=$(f_choose_server_from_list)
+	protocol=$(f_choose_protocol)
 fi
 
 # parse config file
-fmake_ovpn_config_file "$servername" "$protocol"
+vpn_conf=$(mktemp)
+f_make_ovpn_config_file "$servername" "$protocol" > $vpn_conf
 
 # connect
-openvpn --config "$VPN_CONF" | fparse_ovpn_output
+info -t "setting tunnel up"
+openvpn --config $vpn_conf | f_parse_ovpn_output
+
+cat $LOG
 
 exit
+
