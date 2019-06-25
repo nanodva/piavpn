@@ -1,8 +1,4 @@
 # piavpn
-
-piavpn v0.1:
-==========
-
 It is a vpn manager for Private Internet Access VPN. This program is inspired by the pia' manager from d4rkcat.\
 It is designed for Debian based distro, and is still on work.\
 This is mainly an exercice. Run this at your own risk.\
@@ -18,9 +14,9 @@ Required:
 Suggested:
 - dnsmasq
 
-to manually install dependencies:
-`$ apt update
-$ apt install openvpn curl unzip`
+To manually install dependencies:
+`apt update`
+`apt install openvpn curl unzip`
 
 you can remove then later with:
 `$ apt remove openvpn curl unzip`
@@ -28,6 +24,9 @@ you can remove then later with:
 be sure to install the latest versions.
 
 Clone the repository to a suitable place:  
+`cd ~/scripts && git clone https://github.com/d4rkcat/pia`
+
+What is the trick:
 `cd ~/scripts && git clone https://github.com/d4rkcat/pia`
 
 
