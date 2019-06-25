@@ -1,25 +1,7 @@
 # piavpn
-It is a vpn manager for Private Internet Access VPN. This program is inspired by the pia' manager from d4rkcat.  
+It is a vpn manager for Private Internet Access VPN. This program is inspired by the pia manager from d4rkcat.  
 It is designed for Debian based distro, and is still on work.  
 This is mainly an exercice. Run this at your own risk.
-
-Syntax:
-==========
-A line.
-Another line. 
-Another line again.  
-Another line again as well.   
-Yet Another line again as well.\
-hop.
-$ hop  
-! hop  
-# hop  
-~ hop  
-. hop  
-- hop  
-_ hop  
-
-
 
 
 Dependencies:
@@ -83,6 +65,7 @@ installing dnsmasq:
 `apt install dnsmasq`  
 
 edit /etc/dnsmasq.conf, with those lines:
+	
 	# sanity options
 	domain-needed
 	bogus-priv
@@ -92,14 +75,16 @@ edit /etc/dnsmasq.conf, with those lines:
 	server=209.222.18.222
 	server=209.222.18.218
 
-restart dnsmasq  
-`service dnsmasq restart`
+restart dnsmasq 
+	
+	service dnsmasq restart
 
 check it works:  
-`# get ip where dns request are send`  
-`# this is usually 127.0.0.1:53 ( localhost, port 53)`
-`nslookup server`
 
-`# this show what program carries dns request`  
-`# it should return dnsmasq`  
-`netstat -lpnt | grep "127.0.0.1:53"`
+	# get ip where dns request are send  
+	# this is usually 127.0.0.1:53 ( localhost, port 53)
+	nslookup server
+
+	# this show what program carries dns request  
+	# it should return dnsmasq  
+	netstat -lpnt | grep "127.0.0.1:53"
