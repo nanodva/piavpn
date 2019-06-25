@@ -1,5 +1,4 @@
 # piavpn
-# can we say something here ?
 
 piavpn v0.1:
 ==========
@@ -27,6 +26,9 @@ you can remove then later with:
 `$ apt remove openvpn curl unzip`
 
 be sure to install the latest versions.
+
+Clone the repository to a suitable place:  
+`cd ~/scripts && git clone https://github.com/d4rkcat/pia`
 
 
 Installation:
