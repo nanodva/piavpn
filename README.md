@@ -11,28 +11,101 @@ This is mainly an exercice. Run this at your own risk.
 
 Dependencies:
 ==========
+Required:
 openvpn
 curl
 unzip
 
+Suggested:
+dnsmasq
+
+to manually install dependencies:
+
+	$ apt update
+	$ apt install openvpn curl unzip
+
+you can remove then later with:
+	
+	$ apt remove openvpn curl unzip
+
+be sure to install the latest versions.
+
 
 Installation:
 ==========
-
 copy the repository to your disk:
-$ git clone https://this.repo.url.git destination_dir
+	
+	$ git clone https://this.repo.url.git destination_dir
 
 install, or not:
-$ sudo make install
+	
+	$ sudo make install
 
 uninstall:
-$ sudo make uninstall
+
+	$ sudo make uninstall
+
 
 Usage:
 ==========
 to open a VPN tunnel to pia:
-$ piavpn
+	
+	$ piavpn
+
+
+Security and Privacy:
+==========
+Do mind:
+- credentials are store in clear, in /etc/piavpn/credentials.d/
+	this should change in the future
+- This programm does not manage DNS.
+	DNS leaks may occurs. Your ISP may see your navigation.
+	please check that there:
+			https://ipleak.net
+			https://dnsleaktest.com
+	to prevent this, you could install dnsmasq, and use PIA DomainNameServer.
+	See DnsMasq Section below
+
+
+Using Dnsmasq:
+==========
+Dnsmasq is an easy lightweight dns server.
+It provides many features, and can increase navigation speed,
+as well as security.
+
+installing dnsmasq:
+	
+	$ apt update
+	$ apt install dnsmasq
+
+edit /etc/dnsmasq.conf, with those lines:
+	
+	# sanity options
+	domain-needed
+	bogus-priv
+	# do not use resolv.conf to determine used NameServers
+	no-resolv
+	# set Nameservers to PIA's
+	server=209.222.18.222
+	server=209.222.18.218
+
+restart dnsmasq
+
+	$ service dnsmasq restart
+
+check it works:
+	
+	# get ip where dns request are send
+	# this is usually 127.0.0.1:53 ( localhost, port 53)
+	$ nslookup server
+
+	# this show what program carries dns request
+	# it shoul return dnsmasq
+	$ netstat -lpnt | grep "127.0.0.1:53"
+
+
 
 In the Future:
 ==========
-
+	This will become Debian Package friendly.
+	et oui
