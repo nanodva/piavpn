@@ -65,8 +65,8 @@ Using Dnsmasq:
 Dnsmasq is an easy lightweight dns server.\
 
 installing dnsmasq:
-`$ apt update`
-`$ apt install dnsmasq`
+`apt update`
+`apt install dnsmasq`
 
 edit /etc/dnsmasq.conf, with those lines:
 	
