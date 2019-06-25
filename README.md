@@ -12,12 +12,12 @@ This is mainly an exercice. Run this at your own risk.
 Dependencies:
 ==========
 Required:
-openvpn
-curl
-unzip
+`openvpn`
+`curl`
+`unzip`
 
 Suggested:
-dnsmasq
+`dnsmasq`
 
 to manually install dependencies:
 
@@ -58,9 +58,9 @@ Security and Privacy:
 Do mind:
 - credentials are store in clear, in /etc/piavpn/credentials.d/
 	this should change in the future
-- This programm does not manage DNS.
+- This program does not manage DNS.
 	DNS leaks may occurs. Your ISP may see your navigation.
-	please check that there:
+	please check that here:
 			https://ipleak.net
 			https://dnsleaktest.com
 	to prevent this, you could install dnsmasq, and use PIA DomainNameServer.
@@ -69,7 +69,7 @@ Do mind:
 
 Using Dnsmasq:
 ==========
-Dnsmasq is an easy lightweight dns server.
+Dnsmasq is an easy lightweight dns server.\
 It provides many features, and can increase navigation speed,
 as well as security.
 
@@ -107,5 +107,4 @@ check it works:
 
 In the Future:
 ==========
-	This will become Debian Package friendly.
-	et oui
+we'll see
