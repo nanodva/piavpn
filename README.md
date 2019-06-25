@@ -26,7 +26,10 @@ be sure to install the latest versions.
 Clone the repository to a suitable place:  
 `cd ~/scripts && git clone https://github.com/d4rkcat/pia`
 
-What is the trick:
+What is the trick: 
+`cd ~/scripts && git clone https://github.com/d4rkcat/pia`
+
+What is the trick:  
 `cd ~/scripts && git clone https://github.com/d4rkcat/pia`
 
 
