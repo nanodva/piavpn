@@ -15,11 +15,13 @@ Suggested:
 - dnsmasq
 
 To manually install dependencies:  
-`apt update`  
-`apt install openvpn curl unzip`
+	
+	apt update  
+	apt install openvpn curl unzip
 
 you can remove then later with:  
-`apt remove openvpn curl unzip`
+	
+	apt remove openvpn curl unzip
 
 be sure to install the latest versions.
 
@@ -27,20 +29,24 @@ be sure to install the latest versions.
 Installation:
 ==========
 copy the repository to your disk:  
-`git clone https://this.repo.url.git destination_dir`
+	
+	git clone https://this.repo.url.git destination_dir
 
 
 install, or not:  
-`make install`
+	
+	make install
 
 uninstall:  
-`make uninstall`
+	
+	make uninstall
 
 
 Usage:
 ==========
 to open a VPN tunnel to pia:  
-`piavpn`
+	
+	piavpn
 
 
 Security and Privacy:
@@ -61,8 +67,9 @@ Using Dnsmasq:
 Dnsmasq is an easy lightweight dns server.
 
 installing dnsmasq:  
-`apt update`  
-`apt install dnsmasq`  
+	
+	apt update  
+	apt install dnsmasq  
 
 edit /etc/dnsmasq.conf, with those lines:
 	
