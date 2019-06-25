@@ -3,6 +3,23 @@ It is a vpn manager for Private Internet Access VPN. This program is inspired by
 It is designed for Debian based distro, and is still on work.\
 This is mainly an exercice. Run this at your own risk.\
 
+Syntax:
+==========
+A line.
+Another line. 
+Another line again.  
+Another line again as well.   
+Yet Another line again as well.\
+hop.
+$ hop
+! hop
+# hop
+~ hop
+. hop
+- hop
+_ hop
+
+
 
 Dependencies:
 ==========
@@ -14,41 +31,35 @@ Required:
 Suggested:
 - dnsmasq
 
-To manually install dependencies:
+To manually install dependencies:  
 `apt update`
 `apt install openvpn curl unzip`
 
-you can remove then later with:
+you can remove then later with:  
 `$ apt remove openvpn curl unzip`
 
 be sure to install the latest versions.
 
-Clone the repository to a suitable place:  
-`cd ~/scripts && git clone https://github.com/d4rkcat/pia`
-
-What is the trick: 
-`cd ~/scripts && git clone https://github.com/d4rkcat/pia`
-
-What is the trick:  
-`cd ~/scripts && git clone https://github.com/d4rkcat/pia`
-
 
 Installation:
 ==========
-copy the repository to your disk:
-`$ git clone https://this.repo.url.git destination_dir`
+copy the repository to your disk:  
+`git clone https://this.repo.url.git destination_dir`
 
-install, or not:
-`$ sudo make install`
+$ git clone https://this.repo.url.git destination_dir
 
-uninstall:
-`$ sudo make uninstall`
+
+install, or not:  
+`make install`
+
+uninstall:  
+`make uninstall`
 
 
 Usage:
 ==========
-to open a VPN tunnel to pia:
-`$ piavpn`
+to open a VPN tunnel to pia:  
+`piavpn`
 
 
 Security and Privacy:
