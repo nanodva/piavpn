@@ -20,13 +20,11 @@ Suggested:
 - dnsmasq
 
 to manually install dependencies:
-
-	$ apt update
-	$ apt install openvpn curl unzip
+`$ apt update
+$ apt install openvpn curl unzip`
 
 you can remove then later with:
-	
-	$ apt remove openvpn curl unzip
+`$ apt remove openvpn curl unzip`
 
 be sure to install the latest versions.
 
@@ -34,37 +32,32 @@ be sure to install the latest versions.
 Installation:
 ==========
 copy the repository to your disk:
-	
-	$ git clone https://this.repo.url.git destination_dir
+`$ git clone https://this.repo.url.git destination_dir`
 
 install, or not:
-	
-	$ sudo make install
+`$ sudo make install`
 
 uninstall:
-
-	$ sudo make uninstall
+`$ sudo make uninstall`
 
 
 Usage:
 ==========
 to open a VPN tunnel to pia:
-	
-	$ piavpn
+`$ piavpn`
 
 
 Security and Privacy:
 ==========
 Do mind:
 - credentials are store in clear, in /etc/piavpn/credentials.d/\
-	this should change in the future
-- This program does not manage DNS.\
-	DNS leaks may occurs. Your ISP may see your navigation.\
-	please check that here:\
+	This should change in the future.
+- This program does not manage DNS, DNS leaks may occurs.\
+	Please check that here:\
 			https://ipleak.net \
 			https://dnsleaktest.com \
-	to prevent this, you could install dnsmasq, and use PIA DomainNameServer.\
-	See DnsMasq Section below
+	To prevent this, you could install dnsmasq, and use PIA DomainNameServer.\
+	See Dnsmasq Section below
 
 
 Using Dnsmasq:
@@ -72,30 +65,27 @@ Using Dnsmasq:
 Dnsmasq is an easy lightweight dns server.\
 
 installing dnsmasq:
-	
-	$ apt update
-	$ apt install dnsmasq
+`$ apt update`
+`$ apt install dnsmasq`
 
 edit /etc/dnsmasq.conf, with those lines:
 	
-	# sanity options
-	domain-needed
-	bogus-priv
-	# do not use resolv.conf to determine used NameServers
-	no-resolv
-	# set Nameservers to PIA's
-	server=209.222.18.222
-	server=209.222.18.218
+`# sanity options`
+`domain-needed`
+`bogus-priv`
+`# do not use resolv.conf to determine used NameServers`
+`no-resolv`
+`# set Nameservers to PIA's`
+`server=209.222.18.222`
+`server=209.222.18.218`
 
 restart dnsmasq
-
-	$ service dnsmasq restart
+`$ service dnsmasq restart`
 
 check it works:
-	
-	# get ip where dns request are send
-	# this is usually 127.0.0.1:53 ( localhost, port 53)
-	$ nslookup server
+`# get ip where dns request are send
+# this is usually 127.0.0.1:53 ( localhost, port 53)
+$ nslookup server`
 
 	# this show what program carries dns request
 	# it shoul return dnsmasq
@@ -105,5 +95,5 @@ check it works:
 
 In the Future:
 ==========
-we'll see
-	if there is a future
+we'll see`
+	if there is a future`
