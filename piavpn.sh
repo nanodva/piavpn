@@ -18,17 +18,19 @@ PNAME=$(basename $0 .sh)
 # external file for values, to share with other programs
 . globals.conf
 
-# Flags:
-# highly verbose mode
-debug=true
-# do not ask for protocol or server
-auto=true
-auto=false
-
-
 
 ### FUNCTIONS ###
-
+show_help()
+{
+cat <<EOF
+${PNAME} v0.1 PrivateInternetAccess VPN manager
+usage: ${PNAME} [-adh] [--auto] [--debug] [--help]
+	options summary:
+	-h  --help      show this help message
+	-a  --auto      automatically connect to closest server
+	-d  --debug     high verbosity
+EOF
+}
 
 ftestportforwarding()
 {
@@ -45,9 +47,6 @@ ftestportforwarding()
 	# curl -v -m 4 "http://209.222.18.222:2000/?client_id=$(cat $VPNPATH/client_id)"
 	exit
 }
-
-
-
 
 
 f_parse_ovpn_output()
@@ -501,16 +500,44 @@ error()
 debug()
 {
 	# be more verbose when global debug=true
-	if $debug; then
+	if [[ $debug ]]; then
 		msg=$(printf "$@")
 		# printf "debug: %s\n" "$msg"
 		printf "\033[2m%s\033[0m\n" "$msg" >&2
 	fi
 }
 
-## DMZ
+parse_command_line()
+{
+	# parse command line arguments
+	parsed_args=$(getopt -o adh --long auto,debug,help -n $PNAME -- "$@")
+	if [[ $? != 0 ]]; then
+		error "terminating"
+		return 1
+	else
+		eval set -- "$parsed_args"
+	fi
+
+	# loop through arguments
+	while true; do
+		case "$1" in
+			-h | --help )
+				show_help
+				return 1 ;;
+			-a | --auto )
+				auto=true
+				shift ;;
+			-d | --debug )
+				debug=true
+				debug "start in debug mode"
+				shift ;;
+			*)	break ;;
+		esac
+	done
+}
+
 ### MAIN BEGIN ###
-debug "this is debug %s" mode
+parse_command_line $@ || exit 1
 
 # Only root can change ip routes and network interfaces
 if [[ $(id -u) != 0 ]]; then
@@ -523,7 +550,7 @@ if ! f_init; then
 	exit 1
 fi
 
-if $auto ; then
+if [[ $auto ]]; then
 	# connect to closest server
 	servername=$(./diagnose.sh | head -n1)
 	protocol="tcp"
