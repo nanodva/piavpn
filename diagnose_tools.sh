@@ -1,6 +1,6 @@
 #!/bin/bash
 
-f_ping_servers()
+f_probe_servers()
 {
 	## servers url are defined in servers.conf
 
@@ -15,7 +15,7 @@ f_ping_servers()
 		done <<< $(jobs -r)
 	}
 
-	probe_server()
+	do_probe()
 	## ping server and write results to stdout
 	{
 		server=$1
@@ -57,7 +57,7 @@ f_ping_servers()
 			while read line; do
 				if [[ "$line" =~ ^url ]]; then
 					url=$(cut -d '=' -f2 <<< $line)
-					probe_server "$servername" "$url" &
+					do_probe "$servername" "$url" &
 					break
 				fi
 			done
@@ -78,22 +78,10 @@ f_ping_servers()
 	trap - SIGINT
 }
 
+get_closest_server()
+{
+	f_probe_servers | sort -n | head -n1 | cut -d' ' -f2-
+}
 
-## Globals
-PNAME="pia"
-. globals.conf
-. shared_scripts.sh
-# debug=true
-
-## Main Routine ###
-PNAME=$(basename $0)
-info "start $PNAME"
-
-if ! (is_network_reachable); then
-	error "network seems to be down"
-	exit 1
-fi
-
-f_ping_servers | sort -n
 
 
