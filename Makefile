@@ -12,7 +12,7 @@ RUNPATH="/var/run/${PNAME}"
 install:
 	install -m 755 piavpn.sh ${BIN}/piavpn
 
-uninstall:
+uninstall: clean
 	rm ${BIN}/piavpn
 
 clean:
