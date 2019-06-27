@@ -18,6 +18,7 @@ PNAME=$(basename $0 .sh)
 # external file for values, to share with other programs
 . globals.conf
 . shared_scripts.sh
+. diagnose_tools.sh
 
 
 ### FUNCTIONS ###
@@ -499,9 +500,15 @@ if ! f_init; then
 	exit 1
 fi
 
+if ! (is_network_reachable); then
+	error "network seems to be down"
+	exit 1
+fi
+
+
 if [[ $auto ]]; then
 	# connect to closest server
-	servername=$(./diagnose.sh | head -n1)
+	servername=$(get_closest_server)
 	protocol="tcp"
 else
 	# ask for server to use
@@ -516,8 +523,6 @@ f_make_ovpn_config_file "$servername" "$protocol" > $vpn_conf
 # connect
 info -t "setting tunnel up"
 openvpn --config $vpn_conf | f_parse_ovpn_output
-
-cat $LOG
 
 exit
 
