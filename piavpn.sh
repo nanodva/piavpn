@@ -15,10 +15,13 @@
 ### DECLARATIONS ###
 # all folders name depends of Pname
 PNAME=$(basename $0 .sh)
-# external file for values, to share with other programs
-. globals.conf
-. shared_scripts.sh
-. diagnose_tools.sh
+
+# binaries are splitted, to ease developpment.
+LIB=/usr/lib/${PNAME}
+echo $LIB
+. ${LIB}/globals
+. ${LIB}/shared_scripts
+. ${LIB}/diagnose_tools
 
 
 ### FUNCTIONS ###
@@ -117,13 +120,13 @@ f_make_ovpn_config_file()
 
 		<crl-verify>
 		EOF
-		cat ${LIBPATH}/${crl}
+		cat ${ETC}/${crl}
 		cat <<-EOF
 		</crl-verify>
 
 		<ca>
 		EOF
-		cat ${LIBPATH}/${ca}
+		cat ${ETC}/${ca}
 		cat <<-EOF
 		</ca>
 
@@ -395,7 +398,7 @@ f_update_servers_data()
 	debug "saving certificates:"
 	for certif in $(ls *.crt *.pem | sort ); do
 		debug ".. %s" $certif
-		mv $certif $LIBPATH
+		mv $certif $ETC
 	done
 
 	# move config file in place
@@ -430,10 +433,10 @@ f_init_log()
 f_init_folders() 
 {
 	# status; checked
-	## RUNPATH: folder for process data(log, etc)
-	## LIBPATH: data files are stored there
+	## RUN: folder for process data(log, etc)
+	## ETC: data files are stored there
 
-	for folder in $RUNPATH $LIBPATH; do
+	for folder in $RUN $ETC; do
 		if [[ ! -d $folder ]]; then
 			debug "make dir '%s'\n" $folder
 			mkdir -p $folder
@@ -533,7 +536,7 @@ if [[ $auto ]]; then
 else
 	# ask for server to use
 	servername=$(f_choose_server_from_list)
-	[[ -n $protocol ]] && protocol=$(f_choose_protocol)
+	[[ -z $protocol ]] && protocol=$(f_choose_protocol)
 fi
 
 # parse config file
