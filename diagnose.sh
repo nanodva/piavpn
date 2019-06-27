@@ -1,20 +1,10 @@
 #!/bin/bash
 
-PNAME="pia"
-. globals.conf
-
-# test config
-#
-flist_servers()
+f_ping_servers()
 {
-	# print servers list to stdout
-	cat $SRV_CONF | grep -E "^\[" | grep -oE "[a-Z ]+"
-}
+	## servers url are defined in servers.conf
 
-fping_servers()
-# sort servers in ping avg time order
-{
-	_kill_jobs()
+	kill_jobs()
 	# call on SIGINT, kill every running child processes
 	{
 		while read -r job xx xx; do
@@ -26,140 +16,84 @@ fping_servers()
 	}
 
 	probe_server()
-	# ping server and write results to stdout
+	## ping server and write results to stdout
 	{
-		server=$1; url=$2; ip=$3
+		server=$1
+		url=$2
 
-		# init
 		# ping count
 		nping=3
-		# ping process timeout
+		# ping process timeout in seconds
 		deadline=3
-		# ping response timeout
+		# ping response timeout in seconds
 		timeout=1 
 
-		# output line counter
-		n=0
-		
-		log=$(mktemp)
-		# parse lines from ping according to their position
-		while read line; do
-			# increment line counter
-			((n++))
-			# keep a log for debugging
-			echo "[$n] $line" >> $log
-			# retrieve info from ping output
-			case $n in
-				1)	cname=$(cut -d ' ' -f2 <<< $line) ;;
-				4)	read -r send received loss xx <<<\
-						$(echo $line | grep -o -E "[0-9]+" | tr '\n' ' ') ;;
-				5)	read -r min max avg mdev avgtime <<<\
-						$(echo $line | grep -oE "[0-9./]{2,}" | tr '/' ' ') ;;
-				6)	exitcode=$line ;;
-			esac
-		# done <<< $( ping -q -w $deadline -W $timeout -c $nping "$url"; echo $?)
-		done <<< $( ping -q -w $deadline -c $nping "$url"; echo $?)
+		# result will equal avg time (from last line) or failed
+		result=$(ping -q -w $deadline -c $nping "$url" |\
+				 tail -n1 | cut -d'=' -f2 | cut -d'/' -f2|\
+				 egrep ^[0-9]+ || echo "failed")
 
-		# print parsed result to stdout
-		echo "[$server]"
-		# echo "cname:    $cname"
-		# echo "send:     $send"
-		# echo "received: $received"
-		# echo "loss:     $loss"
-		# echo "min:  $min"
-		# echo "max:  $max"
-		echo "avg:  $avg"
-		echo "mdev:  $mdev"
-		echo "exitcode:  $exitcode"
-		
-		# clean
-		rm $log
+		if [[ $result == "failed" ]]; then
+			# error "$server is unreachable. ping error: $exitcode"
+			return 1
+		else
+			# result is average time
+			echo "$result $server"
+			return 0
+		fi
 	}
 
 	# result files of ping
-	probelog=$(mktemp)
-	trap _kill_jobs SIGINT
+	info -n -t "probing servers"
+	trap kill_jobs SIGINT
 
-	n=0
+	# ping each server, and print result to stdout
 	while read line; do
-		# echo $n $line
-		match=$(grep -E '\[' <<< $line)
-		if [[ $match ]]; then
-			servername=$(tr -d '[]' <<< $match)
-			# probe_server servername
-			while read line; do
-				# echo $line
-				match=$(grep -E "^(url|ip)" <<< $line)
-				# if [[ $match ]]; then
-				if [[ "$line" =~ ^url ]]; then
-					url=$(cut -d '=' -f2 <<< $match)
-					# echo url $url
-				elif [[ "$line" =~ ^ip ]]; then
-					ip=$(cut -d '=' -f2 <<< $match)
-					# echo ip $ip
-				fi
+		# each server profile begins with [servername]
+		if [[ $line =~ ^\[ ]]; then
+			servername=$(tr -d '[]' <<< $line)
 
-				if [[ $url && $ip ]]; then
-					probe_server "$servername" $url $ip >> $probelog &
-					unset servername url ip
+			# look for url through this server attributes
+			while read line; do
+				if [[ "$line" =~ ^url ]]; then
+					url=$(cut -d '=' -f2 <<< $line)
+					probe_server "$servername" "$url" &
 					break
-					# exit
 				fi
 			done
 		fi
-		((n++))
 	done < $SRV_CONF
 
-	# wait till only 3 processes remains
-	while [[ $(jobs -r | wc -l) > 3 ]]; do
-		# jobs >&2
-		sleep 1
+	# draw delayed plots to kill time, interfere with debug mesg
+	info -e "please wait"
+	while [[ $(jobs -r) ]]; do
+		# plz be patient ............ parasites in debug mode
+		info -e '.'
+		sleep 0.5
 	done
+	# erase the "plz wait" line
+	info '\033[2K\033[1A'
 
+	# remove trap
 	trap - SIGINT
-	# print results to stdout
-	cat $probelog
-	# clean
-	rm $probelog
 }
 
-fparse_log()
-# get useful info and sort servers
-{
-	while read line; do
-		match=$(<<<$line grep -E "^\[" | tr -d '[]' )
-		if [[ $match ]]; then
-			servername=$match
-		fi
 
-		match=$(<<<$line grep -E "^avg" | grep -oE "[0-9.]+" )
-		if [[ $match ]]; then
-			avg=$match
-		fi
+## Globals
+PNAME="pia"
+. globals.conf
+. shared_scripts.sh
+# debug=true
 
-		match=$(<<<$line grep -E "^mdev" | grep -oE "[0-9.]+" )
-		if [[ $match ]]; then
-			mdev=$match
-		fi
+## Main Routine ###
+PNAME=$(basename $0)
+info "start $PNAME"
 
-		match=$(<<<$line grep -E "^exitcode" | grep -o [0-9])
-		if [[ $match ]]; then
-			exitcode=$match
-			case $exitcode in
-				# failed
-				1)	continue ;;
-			esac
-			# print useful info to stdout
-			echo $avg $mdev $servername 
-		fi
-	done < $1
-}
+if ! (is_network_reachable); then
+	error "network seems to be down"
+	exit 1
+fi
 
-log=$(mktemp)
-list=$(mktemp)
-fping_servers > $log
-fparse_log $log > $list
+f_ping_servers | sort -n
 
-while read xx xx servername; do
-	echo $servername
-done <<<$(cat $list | sort -n)
+
