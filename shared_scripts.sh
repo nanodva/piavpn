@@ -67,8 +67,8 @@ get_ip()
 	info -n -t "probing for ip"
 	ip=$(dig +short myip.opendns.com @resolver1.opendns.com || echo "failed")
 	# exitcode=$?
-	if [[ $ip == "failed"0 ]]; then
-		error "failed to get internet ipv4"
+	if [[ $ip == "failed" ]]; then
+		error "failed to get ipv4"
 		return 1
 	else
 		info "ip: $ip"
