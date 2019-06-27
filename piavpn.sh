@@ -26,11 +26,14 @@ show_help()
 {
 cat <<EOF
 ${PNAME} v0.1 PrivateInternetAccess VPN manager
-usage: ${PNAME} [-adh] [--auto] [--debug] [--help]
+usage: ${PNAME} [-adhp] [--auto] [--protocol <prot>]
+				[--debug] [--help]
 	options summary:
-	-h  --help      show this help message
 	-a  --auto      automatically connect to closest server
+	-p  --protocol  select <prot> communication protocol.
+					Choices are: tcp, udp, stcp, sudp 
 	-d  --debug     high verbosity
+	-h  --help      show this help message
 EOF
 }
 
@@ -149,7 +152,7 @@ f_make_ovpn_config_file()
 	url=$(get_value url)
 	ip=$(get_value ip)
 
-	# port on server
+	# define value for template
 	case $protocol in
 		"tcp")
 			proto="tcp"
@@ -159,11 +162,11 @@ f_make_ovpn_config_file()
 			proto="udp"
 		 	port=$(get_value udp_port)
 			security="default" ;;
-		"strong tcp")
+		"strong-tcp")
 			proto="tcp"
 			port=$(get_value tcps_port)
 			security="strong" ;;
-		"strong udp")
+		"strong-udp")
 			proto="udp"
 			port=$(get_value udps_port)
 			security="strong" ;;
@@ -201,7 +204,7 @@ f_choose_protocol()
 	info -t -n "Protocol selection:"
 
 	PS3="Select a protocol: "
-	select protocol in "tcp" "strong tcp" "udp" "strong udp"; do
+	select protocol in "tcp" "strong-tcp" "udp" "strong-udp"; do
 		if [[ ! $protocol ]]; then
 			error "invalid entry\n"
 			PS3="Enter the selected number [1-4] : "
@@ -460,7 +463,7 @@ f_init()
 parse_command_line()
 {
 	# parse command line arguments
-	parsed_args=$(getopt -o adh --long auto,debug,help -n $PNAME -- "$@")
+	parsed_args=$(getopt -o adhp: --long auto,debug,help,protocol: -n $PNAME -- "$@")
 	if [[ $? != 0 ]]; then
 		error "terminating"
 		return 1
@@ -471,17 +474,33 @@ parse_command_line()
 	# loop through arguments
 	while true; do
 		case "$1" in
-			-h | --help )
-				show_help
+		-h | --help )
+			show_help
+			return 1 ;;
+		-a | --auto )
+			auto=true
+			shift ;;
+		-d | --debug )
+			debug=true
+			debug "start in debug mode"
+			shift ;;
+		-p | --protocol )
+			case $2 in
+			tcp )
+				protocol="tcp" ;;
+			udp )
+				protocol="udp" ;;
+			stcp | strong-tcp )
+				protocol="strong-tcp" ;;
+			sudp | strong-udp )
+				protocol="strong-udp" ;;
+			* )
+				error "unknown protocol $2"
 				return 1 ;;
-			-a | --auto )
-				auto=true
-				shift ;;
-			-d | --debug )
-				debug=true
-				debug "start in debug mode"
-				shift ;;
-			*)	break ;;
+			esac
+			shift 2 ;;
+		# end of options
+		*)	break ;;
 		esac
 	done
 }
@@ -509,11 +528,12 @@ fi
 if [[ $auto ]]; then
 	# connect to closest server
 	servername=$(get_closest_server)
-	protocol="tcp"
+	# set protocol if not define on command line
+	[[ -z $protocol ]] && protocol="strong-tcp"
 else
 	# ask for server to use
 	servername=$(f_choose_server_from_list)
-	protocol=$(f_choose_protocol)
+	[[ -n $protocol ]] && protocol=$(f_choose_protocol)
 fi
 
 # parse config file
