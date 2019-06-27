@@ -2,7 +2,34 @@
 It is a vpn manager for Private Internet Access VPN. This program is inspired by the pia manager from d4rkcat.  
 It is designed for Debian based distro, and is still on work.
 
-This is mainly an exercice. Run this at your own risk.
+Run this at your own risk.
+
+
+
+Usage:
+==========
+After installation, to open a VPN tunnel to a PIA server, run:
+	
+	piavpn
+
+To let pia select the closest server:
+
+	# strong-tcp is the default protocol
+	piavpn --auto
+
+At first launch, you'll be prompted for pia user credentials. They will be saved in /etc/piavpn/credentials.d/credentials.
+
+	usage: piavpn [-adhp] [--auto] [--protocol <prot>]
+				  [--debug] [--help]
+
+	options summary:
+	-a  --auto      automatically connect to closest server
+	-p  --protocol  select <prot> communication protocol.
+					Choices are: tcp, udp, stcp, sudp 
+	-d  --debug     high verbosity
+	-h  --help      show this help message
+
+
 
 
 Dependencies:
@@ -27,6 +54,7 @@ you can remove then later with:
 be sure to install the latest versions.
 
 
+
 Installation:
 ==========
 copy the repository to your disk:  
@@ -40,14 +68,9 @@ install, or not:
 
 uninstall:  
 	
+	# remove application directories as well
 	make uninstall
 
-
-Usage:
-==========
-to open a VPN tunnel to pia:  
-	
-	piavpn
 
 
 Security and Privacy:
