@@ -37,7 +37,10 @@ Dependencies:
 Required:
 - openvpn
 - curl
+- net-tools
 - unzip
+- openssl
+- dnsutils
 
 Suggested:
 - dnsmasq

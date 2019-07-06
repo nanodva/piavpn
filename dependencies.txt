@@ -1,5 +1,6 @@
 openvpn
 openssl
-iptables
 curl
 unzip
+net-tools
+dnsutils
