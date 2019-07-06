@@ -1,29 +1,33 @@
 #/usr/bin/make
 
-#
-PNAME=piavpn
+PNAME = piavpn
+SHELL = /bin/bash
 
-BIN=/usr/bin
-LIB=/usr/lib/${PNAME}
+# PREFIX ?= /usr/local
+# BIN = $(DESTDIR)$(PREFIX)/bin
+BIN = $(DESTDIR)/usr//bin
+#LIB = $(DESTDIR)$(PREFIX)/lib/${PNAME}
+LIB = $(DESTDIR)/usr/lib/$(PNAME)
 
 # folders installed by piavpn
-ETC=/etc/${PNAME}
-RUN=/var/run/${PNAME}
+ETC = $(DESTDIR)/etc/$(PNAME)
+RUN = $(DESTDIR)/var/run/$(PNAME)
 
 # install binaries
 install:
-	install -m 755 piavpn.sh ${BIN}/piavpn
-	install -d ${LIB}
+	install -d $(BIN)
+	install -m 755 piavpn.sh $(BIN)/piavpn
 
-uninstall: clean
-	rm -f ${BIN}/piavpn
+remove: clean
+	rm -f $(BIN)/piavpn
 
 clean:
-	rm -fr ${LIB}
-	rm -fr ${RUN}
+	rm -fr $(LIB)
+	rm -fr $(RUN)
 
-purge: uninstall
-	rm -fr ${ETC}
+uninstall: remove
+purge: remove
+	rm -fr $(ETC)
 
 reinstall: purge install
 

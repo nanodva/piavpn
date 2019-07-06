@@ -16,8 +16,6 @@
 # all folders name depends of Pname
 PNAME=$(basename $0 .sh)
 
-# binaries are splitted, to ease developpment.
-
 # Colour codes for terminal.
 BOLD=$(printf "\033[1m")
 BLUE=$(printf "\033[34m")
@@ -791,4 +789,3 @@ printf '\n'
 
 echo "terminating"
 exit
-
