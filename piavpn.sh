@@ -31,7 +31,7 @@ PROMPT=" [$BOLD$BLUE>$RESET]"
 # Folders
 ETC="/etc/${PNAME}"
 RUN="/var/run/${PNAME}"
-LIB=/usr/lib/${PNAME}
+# LIB=/usr/lib/${PNAME}
 
 # files
 SRV_CONF="${ETC}/servers.conf"
