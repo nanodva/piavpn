@@ -80,6 +80,7 @@ f_probe_servers()
 
 get_closest_server()
 {
+	# echo closest server name
 	f_probe_servers | sort -n | head -n1 | cut -d' ' -f2-
 }
 

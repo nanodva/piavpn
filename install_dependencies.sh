@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## install required dependencies
+## install required dependencies for pia-vpn
 ## they are listed in this file:
 dependencies="./dependencies.txt"
 

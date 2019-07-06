@@ -17,45 +17,163 @@
 PNAME=$(basename $0 .sh)
 
 # binaries are splitted, to ease developpment.
-LIB=/usr/lib/${PNAME}
-echo $LIB
-. ${LIB}/globals
-. ${LIB}/shared_scripts
-. ${LIB}/diagnose_tools
 
+# Colour codes for terminal.
+BOLD=$(printf "\033[1m")
+BLUE=$(printf "\033[34m")
+GREEN=$(printf "\033[32m")
+CYAN=$(printf "\033[36m")
+RED=$(printf "\033[31m")
+RESET=$(printf "\033[0m")
+
+INFO=" [$BOLD$GREEN*$RESET]"
+ERROR=" [$BOLD$RED"'X'"$RESET]"
+PROMPT=" [$BOLD$BLUE>$RESET]"
+
+# Folders
+ETC="/etc/${PNAME}"
+RUN="/var/run/${PNAME}"
+LIB=/usr/lib/${PNAME}
+
+# files
+SRV_CONF="${ETC}/servers.conf"
+VPN_CONF="${ETC}/config.ovpn"
+CREDENTIALS="${ETC}/credentials.d/credentials.txt"
+LOG="${RUN}/${PNAME}.log"
+
+PIA_URL="https://www.privateinternetaccess.com"
+
+# echo $LIB
+# . ${LIB}/globals
+# . ${LIB}/shared_scripts
+# . ${LIB}/diagnose_tools
+## Flags
+auto=false
 
 ### FUNCTIONS ###
-show_help()
+f_help()
 {
-cat <<EOF
-${PNAME} v0.1 PrivateInternetAccess VPN manager
-usage: ${PNAME} [-adhp] [--auto] [--protocol <prot>]
-				[--debug] [--help]
-	options summary:
-	-a  --auto      automatically connect to closest server
-	-p  --protocol  select <prot> communication protocol.
-					Choices are: tcp, udp, stcp, sudp 
-	-d  --debug     high verbosity
-	-h  --help      show this help message
-EOF
+	cat <<-EOF
+	${PNAME} v0.1 PrivateInternetAccess VPN manager
+	usage: ${PNAME} [options]
+
+	  options summary:
+	    -a  --auto      automatically connect to closest server
+	    -p  --protocol  select <prot> communication protocol.
+	                    choices are: tcp, udp, stcp, sudp
+	                    default is udp
+	    -d  --debug     high verbosity
+	    -h  --help      show this help message
+	EOF
 }
 
-ftestportforwarding()
+log()
 {
-	echo "test port forwarding"
-	cd $VPNPATH
-	while read -r NAME URL; do
-		CONFIG="$NAME.ovpn"
-		echo $CONFIG
-		openvpn --config $CONFIG &
-		pid=$!
-		sleep 5
-		kill $pid
-	done < servers.txt
-	# curl -v -m 4 "http://209.222.18.222:2000/?client_id=$(cat $VPNPATH/client_id)"
-	exit
+	# print msg to log file $LOG
+	msg=$(printf "$@")
+	printf "%s\n" "$msg" >> $LOG
 }
 
+info()
+{
+	## display info line to stderr
+	## usage: info [options] <message>
+
+	fmt='%s'
+	# add newline '\n' char
+	endline=true
+
+	## options:
+	for arg in $@; do
+	case $arg in
+	'-n') # add a line break before message
+		# fmt="\n${fmt}"
+		printf "\n" >&2
+		shift
+		;;
+	'-e') # do not add EOL character
+		endline=false
+		shift
+		;;
+	'-t') # title format, bold text
+		fmt="\033[1m%s\033[0m"
+		shift
+		;;
+	esac
+	done
+
+	msg=$(printf "$@")
+	printf -- "$fmt" "$msg" >&2
+
+	$endline && printf '\n' >&2
+}
+
+error()
+{
+	msg=$(printf "$@")
+	# printf "error: %s\n" "$msg"
+	printf "\033[91m%s\033[0m\n" "$msg" >&2
+}
+
+debug()
+{
+	# be more verbose when global debug=true
+	if [[ $debug ]]; then
+		msg=$(printf "$@")
+		# printf "debug: %s\n" "$msg"
+		printf "\033[2m%s\033[0m\n" "$msg" >&2
+	fi
+}
+
+get_ip()
+{
+	info -n -t "probing for ip"
+	ip=$(dig +short myip.opendns.com @resolver1.opendns.com || echo "failed")
+	# exitcode=$?
+	if [[ $ip == "failed" ]]; then
+		error "failed to get ipv4"
+		return 1
+	else
+		info "ip: $ip"
+		return 0
+	fi
+}
+
+get_gateway_interface()
+{
+	# look for internet gateway
+	info -n -t "probing gateway"
+
+	gates=""
+	# which iface is connected to default (0.0.0.0) ?
+	while read -r dest gateway xx flags xx xx xx iface; do
+		# check iface is UP 
+		[[ $flags =~ U ]] || continue
+		debug "$iface is up"
+		# check iface use gataway
+		[[ $flags =~ G ]] || continue
+		debug "$iface use gateway"
+		gates+=$iface
+	done <<< $(route | grep -i -e "^default")
+
+	if [[ -z $gates ]]; then
+		error "can't find a gateway interface"
+		return 1
+	else
+		info "found gateway $gates"
+		return 0
+	fi
+}
+
+is_network_reachable()
+{
+	get_gateway_interface || return 1
+	get_ip || return 1
+
+	# success
+	debug "network is available"
+	return 0
+}
 
 f_parse_ovpn_output()
 {
@@ -78,16 +196,106 @@ f_parse_ovpn_output()
 				status="connected"
 			fi
 		elif [[ "$info" =~ 'failed' ]]; then
-
 			error "failed: %s" "$info"
 		elif [[ "$info" =~ 'Initialization Sequence Completed' ]]; then
 			info "Tunnel initialization completed\n"
 			info -t "Tunnel initialized"
 			status="active"
 		fi
+
+		# remote ip
+		# Peer Connection Initiated with [AF_INET]185.232.21.29:501
+		if [[ $info =~ "Peer Connection Initiated with" ]]; then
+			ip=$(egrep -o "[0-9.]{7,15}" <<< $info)
+			info "ip [%s]" $ip
+		fi
+
 	done
 }
 
+f_probe_servers()
+{
+	## servers url are defined in servers.conf
+
+	kill_jobs()
+	# call on SIGINT, kill every running child processes
+	{
+		while read -r job xx xx; do
+			# ignore empty list
+			[[ ! $job ]] && continue
+			job=$(tr -d '[]+-' <<< $job)
+			kill %$job
+		done <<< $(jobs -r)
+	}
+
+	do_probe()
+	## ping server and write results to stdout
+	{
+		server=$1
+		url=$2
+
+		# ping count
+		nping=3
+		# ping process timeout in seconds
+		deadline=3
+		# ping response timeout in seconds
+		timeout=1 
+
+		# result will equal avg time (from last line) or failed
+		result=$(ping -q -w $deadline -c $nping "$url" |\
+				 tail -n1 | cut -d'=' -f2 | cut -d'/' -f2|\
+				 egrep ^[0-9]+ || echo "failed")
+
+		if [[ $result == "failed" ]]; then
+			# error "$server is unreachable. ping error: $exitcode"
+			return 1
+		else
+			# result is average time
+			echo "$result $server"
+			return 0
+		fi
+	}
+
+	# result files of ping
+	info -n -t "probing servers"
+	trap kill_jobs SIGINT
+
+	# ping each server, and print result to stdout
+	while read line; do
+		# each server profile begins with [servername]
+		if [[ $line =~ ^\[ ]]; then
+			servername=$(tr -d '[]' <<< $line)
+
+			# look for url through this server attributes
+			while read line; do
+				if [[ "$line" =~ ^url ]]; then
+					url=$(cut -d '=' -f2 <<< $line)
+					do_probe "$servername" "$url" &
+					break
+				fi
+			done
+		fi
+	done < $SRV_CONF
+
+	# draw delayed plots to kill time, interfere with debug mesg
+	info -e "please wait"
+	while [[ $(jobs -r) ]]; do
+		# plz be patient ............ parasites in debug mode
+		info -e '.'
+		sleep 0.5
+	done
+	# erase the "plz wait" line
+	info '\033[2K\033[1A'
+
+	# remove trap
+	trap - SIGINT
+}
+
+get_closest_server()
+{
+	# return closest server name
+	f_probe_servers | sort -n | head -n1 | cut -d' ' -f2-
+}
 
 f_make_ovpn_config_file()
 {
@@ -255,46 +463,6 @@ f_choose_server_from_list()
 	echo $servername
 }
 
-f_init_credentials()
-{
-	# credentials are (quite) securely stored. for auto login
-	dir=$(dirname $CREDENTIALS)
-	if [[ ! -d $dir ]]; then
-		install -d -m 700 $dir
-		# mkdir -p $dir && chmod 700 $dir
-	fi
-	
-	# double check dir access on each start
-	mode=$(stat -c %a $dir)
-	if [[ $mode != "700" ]]; then
-		error "${dir} mode must be 700. mode changed"
-		chmod 700 $dir
-	fi
-
-	if [[ ! -f $CREDENTIALS ]]; then
-		printf "your PIA credentials will be stored for further login\n"
-		printf "$PROMPT username: "
-		read USERNAME
-
-		printf "$PROMPT password: "
-		read -s PASSWORD && printf '\n'
-
-		printf "$USERNAME\n$PASSWORD\n" > $CREDENTIALS
-
-		unset USERNAME PASSWORD
-		chmod 400 $CREDENTIALS
-	fi
-
-	# force restricted mode at each start
-	mode=$(stat -c %a $CREDENTIALS)
-	if [[ $mode != "400" ]]; then
-		error "$CREDENTIALS mode must be 400. mode changed"
-		chmod 400 $CREDENTIALS
-	fi
-
-	return 0
-}
-
 f_update_servers_data()
 {
 	##Automaticaly updates server list
@@ -403,61 +571,102 @@ f_update_servers_data()
 
 	# move config file in place
 	mv $tmp_conf $SRV_CONF
-	
 
 	# clean
 	rm -r $tmpdir
 	return 0
 }
 
-f_init_servers_data()
+f_init()
 {
-	# check server list
-	if [[ ! -f $SRV_CONF ]]; then
-		if (f_update_servers_data); then
-			info "update succeed"
-		else
-			error "update failed"
-			return 1
-		fi
-	fi
-}
 
-f_init_log()
-{
-	## make a clean new log at each start
-	echo "----------------" > $LOG
-	echo "init log" $(date) >> $LOG
-}
+	l_init_folders() 
+	{
+		# status; checked
+		## RUN: folder for process data(log, etc)
+		## ETC: data files are stored there
 
-f_init_folders() 
-{
-	# status; checked
-	## RUN: folder for process data(log, etc)
-	## ETC: data files are stored there
+		for folder in $RUN $ETC; do
+			if [[ ! -d $folder ]]; then
+				debug "make dir '%s'\n" $folder
+				mkdir -p $folder
+				if [[ $? != 0 ]]; then
+					error "unable to make dir $folder"
+					return 1
+				fi
+			fi
+		done
+	}
 
-	for folder in $RUN $ETC; do
-		if [[ ! -d $folder ]]; then
-			debug "make dir '%s'\n" $folder
-			mkdir -p $folder
-			if [[ $? != 0 ]]; then
-				error "unable to make dir $folder"
+	l_init_log()
+	{
+		## make a clean new log at each start
+		echo "----------------" > $LOG
+		echo "init log" $(date) >> $LOG
+	}
+
+	l_init_servers_data()
+	{
+		# check server list
+		if [[ ! -f $SRV_CONF ]]; then
+			if (f_update_servers_data); then
+				info "update succeed"
+			else
+				error "update failed"
 				return 1
 			fi
 		fi
-	done
-}
+	}
 
-f_init()
-{
+
+	l_init_credentials()
+	{
+		# credentials are (quite) securely stored. for auto login
+		dir=$(dirname $CREDENTIALS)
+		if [[ ! -d $dir ]]; then
+			install -d -m 700 $dir
+			# mkdir -p $dir && chmod 700 $dir
+		fi
+		
+		# double check dir access on each start
+		mode=$(stat -c %a $dir)
+		if [[ $mode != "700" ]]; then
+			error "${dir} mode must be 700. mode changed"
+			chmod 700 $dir
+		fi
+
+		if [[ ! -f $CREDENTIALS ]]; then
+			printf "your PIA credentials will be stored for further login\n"
+			printf "$PROMPT username: "
+			read USERNAME
+
+			printf "$PROMPT password: "
+			read -s PASSWORD && printf '\n'
+
+			printf "$USERNAME\n$PASSWORD\n" > $CREDENTIALS
+
+			unset USERNAME PASSWORD
+			chmod 400 $CREDENTIALS
+		fi
+
+		# force restricted mode at each start
+		mode=$(stat -c %a $CREDENTIALS)
+		if [[ $mode != "400" ]]; then
+			error "$CREDENTIALS mode must be 400. mode changed"
+			chmod 400 $CREDENTIALS
+		fi
+
+		return 0
+	}
+
 	info "initializing..."
 
-	f_init_folders || return 1
-	f_init_log || return 1
-	f_init_servers_data || return 1
+	l_init_folders || return 1
+	l_init_log || return 1
+	l_init_servers_data || return 1
 
 	# ask for credentials if not stored yet
-	f_init_credentials || return 1
+	l_init_credentials || return 1
 
 	info "initialization succeed"
 	return 0
@@ -478,7 +687,7 @@ parse_command_line()
 	while true; do
 		case "$1" in
 		-h | --help )
-			show_help
+			f_help
 			return 1 ;;
 		-a | --auto )
 			auto=true
@@ -508,6 +717,14 @@ parse_command_line()
 	done
 }
 
+_sigint()
+{
+	jobs
+	printf "killing openvpn\n"
+	kill %1
+	exit 0
+}
+
 ### MAIN BEGIN ###
 parse_command_line $@ || exit 1
 
@@ -528,7 +745,7 @@ if ! (is_network_reachable); then
 fi
 
 
-if [[ $auto ]]; then
+if $auto; then
 	# connect to closest server
 	servername=$(get_closest_server)
 	# set protocol if not define on command line
@@ -545,7 +762,30 @@ f_make_ovpn_config_file "$servername" "$protocol" > $vpn_conf
 
 # connect
 info -t "setting tunnel up"
-openvpn --config $vpn_conf | f_parse_ovpn_output
+options="--config $vpn_conf --ping 3 --ping-exit 20 --mute-replay-warnings"
 
+tunnel()
+{
+	openvpn $options | f_parse_ovpn_output
+}
+
+trap _sigint SIGINT
+
+while true; do
+	printf "starting openvpn\n"
+	tunnel &
+	while [[ $(jobs -r | wc -l) > 0 ]]; do
+	# while [[ $(jobs %tunnel) ]] ; do
+	# openvpn --config $vpn_conf | f_parse_ovpn_output
+		printf "."
+		sleep 1
+	done
+	printf "tunnel has closed. restarting\n"
+done
+
+
+printf '\n'
+
+echo "terminating"
 exit
 
