@@ -4,3 +4,4 @@ curl
 unzip
 net-tools
 dnsutils
+inetutils-ping

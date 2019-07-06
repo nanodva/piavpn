@@ -41,6 +41,7 @@ Required:
 - unzip
 - openssl
 - dnsutils
+- inetutils-ping
 
 Suggested:
 - dnsmasq
