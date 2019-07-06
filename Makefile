@@ -5,7 +5,7 @@ SHELL = /bin/bash
 
 # PREFIX ?= /usr/local
 # BIN = $(DESTDIR)$(PREFIX)/bin
-BIN = $(DESTDIR)/usr//bin
+BIN = $(DESTDIR)/usr/bin
 #LIB = $(DESTDIR)$(PREFIX)/lib/${PNAME}
 LIB = $(DESTDIR)/usr/lib/$(PNAME)
 
