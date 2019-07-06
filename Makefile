@@ -14,6 +14,9 @@ ETC = $(DESTDIR)/etc/$(PNAME)
 RUN = $(DESTDIR)/var/run/$(PNAME)
 
 # install binaries
+welcome:
+	@echo "Aloha"
+	
 install:
 	install -d $(BIN)
 	install -m 755 piavpn.sh $(BIN)/piavpn
