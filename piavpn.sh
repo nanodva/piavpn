@@ -329,7 +329,7 @@ f_list_servers()
 {
 	# print servers list to stdout
 	# in server.conf, servers names are closed in brackets []
-	cat $SRV_CONF | grep -E "^\[" | grep -oE "[a-Z ]+"
+	cat $SRV_CONF | grep -E "^\[" | tr -d []
 }
 
 f_make_ovpn_config_file()
