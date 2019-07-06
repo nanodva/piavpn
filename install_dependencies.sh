@@ -43,7 +43,7 @@ while read pkg; do
 	command -v $pkg >/dev/null 2>&1
 	if [[ $? != 0 ]]; then
 		info "$pkg required, installing..."
-		# $install_cmd pkg
+		$install_cmd $pkg
 	else
 		info "$pkg is installed"
 	fi
