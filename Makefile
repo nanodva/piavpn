@@ -14,9 +14,6 @@ RUN=/var/run/${PNAME}
 install:
 	install -m 755 piavpn.sh ${BIN}/piavpn
 	install -d ${LIB}
-	install -m 755 globals.conf ${LIB}/globals
-	install -m 755 shared_scripts.sh ${LIB}/shared_scripts
-	install -m 755 diagnose_tools.sh ${LIB}/diagnose_tools
 
 uninstall: clean
 	rm -f ${BIN}/piavpn
