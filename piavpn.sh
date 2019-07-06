@@ -777,7 +777,7 @@ while true; do
 	while [[ $(jobs -r | wc -l) > 0 ]]; do
 	# while [[ $(jobs %tunnel) ]] ; do
 	# openvpn --config $vpn_conf | f_parse_ovpn_output
-		printf "."
+		# printf "."
 		sleep 1
 	done
 	printf "tunnel has closed. restarting\n"
