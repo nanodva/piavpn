@@ -33,7 +33,7 @@ At first launch, you'll be prompted for pia user credentials. They will be saved
 
 
 Dependencies:
-==========
+============
 Required:
 - openvpn
 - curl
@@ -60,12 +60,16 @@ be sure to install the latest versions.
 
 
 
-Installation:
-==========
+Manual installation:
+===================
 copy the repository to your disk:  
 	
 	git clone https://this.repo.url.git destination_dir
 
+install dependencies
+
+	# depencies are listed in dependencies.txt
+	sudo install_dependencies.sh
 
 install, or not:  
 	
@@ -74,12 +78,42 @@ install, or not:
 uninstall:  
 	
 	# remove application directories as well
-	make uninstall
+	make remove
+
+
+
+Installation from PPA:
+=====================
+Required:
+- gnupg
+
+Add the repository to APT repositories list
+
+	# open /etc/apt/sources-list for edition
+	sudo apt edit-sources
+
+	# add this line to /etc/apt/sources-list
+	deb http://ppa.launchpad.net/taigasan/ppa/ubuntu eoan main
+	# and this one for sources
+	deb-src http://ppa.launchpad.net/taigasan/ppa/ubuntu eoan main
+
+Add the PPA gpg key to apt keyring
+key fingerprint: 90B3FC4D4909D303
+
+	# you need gnupg
+	sudo apt install gnupg
+	# retrieve public key from ubuntu.com keyserver
+	sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key 90B3FC4D4909D303
+
+install pia-vpn-client
+
+	sudo apt update
+	sudo apt install pia-vpn-client
 
 
 
 Security and Privacy:
-==========
+====================
 Do mind:
 - credentials are store in clear, in /etc/piavpn/credentials.d/.  
 	This should change in the future.
