@@ -56,12 +56,13 @@ _help()
 	usage: ${PNAME} [options]
 
 	  options summary:
-	    -a  --auto      automatically connect to closest server
-	    -p  --protocol  select <prot> communication protocol.
-	                    choices are: tcp, udp, stcp, sudp
-	                    default is udp
-	    -d  --debug     high verbosity
-	    -h  --help      show this help message
+	    -a  --auto          automatically connect to closest server
+	    -p  --protocol      select <prot> communication protocol.
+	                        choices are: tcp, udp, stcp, sudp
+	                        default is udp
+	    -l  --list-servers  display a numbered list of pia servers
+	    -d  --debug         high verbosity
+	    -h  --help          show this help message
 	EOF
 }
 
@@ -571,7 +572,7 @@ f_update_servers_data()
 	{
 		zip=$1
 		url=${PIA_URL}/openvpn/${zip}
-		debug "downloading %s" $url
+		printf "downloading %s\n" $url
 
 		# ask server for file existence
 		# TODO: test modification date (curl -z --time-cond)
@@ -677,46 +678,13 @@ f_update_servers_data()
 parse_command_line()
 {
 	# parse command line arguments
-	parsed_args=$(getopt -o adhp: --long auto,debug,help,protocol: -n $PNAME -- "$@")
+	parsed_args=$(getopt -o adhp:l --long auto,debug,help,protocol:,list-servers -n $PNAME -- "$@")
 	if [[ $? != 0 ]]; then
 		error "terminating"
 		return 1
 	else
 		eval set -- "$parsed_args"
 	fi
-
-	# loop through arguments
-	while true; do
-		case "$1" in
-		-h | --help )
-			_help
-			return 1 ;;
-		-a | --auto )
-			auto=true
-			shift ;;
-		-d | --debug )
-			debug=true
-			debug "start in debug mode"
-			shift ;;
-		-p | --protocol )
-			case $2 in
-			tcp )
-				protocol="tcp" ;;
-			udp )
-				protocol="udp" ;;
-			stcp | strong-tcp )
-				protocol="strong-tcp" ;;
-			sudp | strong-udp )
-				protocol="strong-udp" ;;
-			* )
-				error "unknown protocol $2"
-				return 1 ;;
-			esac
-			shift 2 ;;
-		# end of options
-		*)	break ;;
-		esac
-	done
 }
 
 _sigint()
@@ -729,6 +697,45 @@ _sigint()
 ### MAIN BEGIN ###
 parse_command_line $@ || exit 1
 
+# loop through arguments
+while true; do
+	case "$1" in
+	-h | --help )
+		_help
+		exit 0 ;;
+	-l | --list-servers )
+		n=1
+		while read line; do
+			printf "%2d: %s\n" "$((n++))" "$line"
+		done <<< $(f_list_servers)
+		exit 0 ;;
+	-a | --auto )
+		auto=true
+		shift ;;
+	-d | --debug )
+		debug=true
+		debug "start in debug mode"
+		shift ;;
+	-p | --protocol )
+		case $2 in
+		tcp )
+			protocol="tcp" ;;
+		udp )
+			protocol="udp" ;;
+		stcp | strong-tcp )
+			protocol="strong-tcp" ;;
+		sudp | strong-udp )
+			protocol="strong-udp" ;;
+		* )
+			error "unknown protocol $2"
+			return 1 ;;
+		esac
+		shift 2 ;;
+	# end of options
+	*)	break ;;
+	esac
+done
+
 # Only root can change ip routes and network interfaces
 if [[ $(id -u) != 0 ]]; then
 	echo "$ERROR Script must be run as root."
@@ -739,6 +746,12 @@ if ! _init; then
 	echo "unable to initialize"
 	exit 1
 fi
+
+case $action in
+	list-servers )
+		cat -n <<< $(f_list_servers)
+		exit 0 ;;
+esac
 
 if ! (f_probe_network); then
 	error "network seems to be down"
