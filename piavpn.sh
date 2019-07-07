@@ -761,6 +761,14 @@ fi
 vpn_conf=$(mktemp)
 f_make_ovpn_config_file "$servername" "$protocol" > $vpn_conf
 
+# check for tunnel node
+node=/dev/net/tun
+if [[ ! -c $node ]]; then
+	debug "making tunnel node $node"
+	mkdir -p $(dirname $node)
+	mknod $node c 10 200
+fi
+
 # connect
 info -t -n "setting tunnel up"
 options="--config $vpn_conf --ping 3 --ping-exit 20 --mute-replay-warnings"
