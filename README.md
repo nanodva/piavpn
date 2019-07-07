@@ -49,12 +49,18 @@ Suggested:
 
 To manually install dependencies:  
 	
-	apt update  
-	apt install openvpn curl unzip
+	sudo apt update
+	sudo apt install openvpn curl net-tools unzip openssl ca-certificates dnsutils inetutils-ping
+
+or run the automated script
+
+	# depencies are listed in dependencies.txt
+	sudo install_dependencies.sh
 
 you can remove then later with:  
 	
-	apt remove openvpn curl unzip
+	# beware some packages may be required by other packages. APT should warm you. 
+	apt remove openvpn curl unzip ...
 
 be sure to install the latest versions.
 
@@ -66,12 +72,7 @@ copy the repository to your disk:
 	
 	git clone https://this.repo.url.git destination_dir
 
-install dependencies
-
-	# depencies are listed in dependencies.txt
-	sudo install_dependencies.sh
-
-install, or not:  
+install:
 	
 	make install
 
@@ -87,7 +88,7 @@ Installation from PPA:
 Required:
 - gnupg
 
-Add the repository to APT repositories list
+Add the repository to APT source list:
 
 	# open /etc/apt/sources-list for edition
 	sudo apt edit-sources
@@ -97,12 +98,13 @@ Add the repository to APT repositories list
 	# and this one for sources
 	deb-src http://ppa.launchpad.net/taigasan/ppa/ubuntu eoan main
 
-Add the PPA gpg key to apt keyring
+Add the PPA gpg key to apt keyring.
 key fingerprint: 90B3FC4D4909D303
 
 	# you need gnupg
 	sudo apt install gnupg
-	# retrieve public key from ubuntu.com keyserver
+	
+	# retrieve PPA public key from ubuntu.com keyserver
 	sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key 90B3FC4D4909D303
 
 install pia-vpn-client
@@ -119,8 +121,8 @@ Do mind:
 	This should change in the future.
 - This program does not manage DNS, DNS leaks may occurs.  
 	Please check that here:  
-			https://ipleak.net  
-			https://dnsleaktest.com  
+		https://ipleak.net  
+		https://dnsleaktest.com  
 	To prevent this, you could install dnsmasq, and use PIA DomainNameServer.  
 	See Dnsmasq Section below.
 
@@ -158,3 +160,6 @@ check it works:
 	# this show what program carries dns request  
 	# it should return dnsmasq  
 	netstat -lpnt | grep "127.0.0.1:53"
+
+Troubleshootings:
+================
