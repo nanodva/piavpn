@@ -21,14 +21,11 @@ install:
 	install -d $(BIN)
 	install -m 755 piavpn.sh $(BIN)/piavpn
 
-remove: clean
+remove:
 	rm -f $(BIN)/piavpn
 
 purge: remove
 	rm -fr $(ETC)
 
-reinstall: purge install
-
-
 clean:
-	@echo "skip dh_auto_clean"
+	@echo "cleaned"
