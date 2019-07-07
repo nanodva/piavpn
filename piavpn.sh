@@ -56,13 +56,15 @@ _help()
 	usage: ${PNAME} [options]
 
 	  options summary:
-	    -a  --auto          automatically connect to closest server
-	    -p  --protocol      select <prot> communication protocol.
-	                        choices are: tcp, udp, stcp, sudp
-	                        default is udp
-	    -l  --list-servers  display a numbered list of pia servers
-	    -d  --debug         high verbosity
-	    -h  --help          show this help message
+	    -a  --auto             automatically connect to closest server
+	    -p  --protocol         select <prot> communication protocol.
+	                           choices are: tcp, udp, stcp, sudp
+	                           default is udp
+	    -l  --list-servers     display a numbered list of pia servers
+	    -s  --server <server>  connect to selected server
+	                           could be a name or number in server list
+	    -d  --debug            high verbosity
+	    -h  --help             show this help message
 	EOF
 }
 
@@ -214,7 +216,7 @@ debug()
 {
 	# be more verbose when global debug=true
 	if [[ $debug ]]; then
-		msg=$(printf "$@")
+		msg=$(printf -- "$@")
 		# printf "debug: %s\n" "$msg"
 		printf "\033[2m%s\033[0m\n" "$msg" >&2
 	fi
@@ -678,7 +680,7 @@ f_update_servers_data()
 parse_command_line()
 {
 	# parse command line arguments
-	parsed_args=$(getopt -o adhp:l --long auto,debug,help,protocol:,list-servers -n $PNAME -- "$@")
+	parsed_args=$(getopt -o adhp:ls: --long auto,debug,help,protocol:,list-servers,server: -n $PNAME -- "$@")
 	if [[ $? != 0 ]]; then
 		error "terminating"
 		return 1
@@ -712,6 +714,10 @@ while true; do
 	-a | --auto )
 		auto=true
 		shift ;;
+	-s | server )
+		argserver=$2
+		debug "argserver: $argserver"
+		shift 2 ;;
 	-d | --debug )
 		debug=true
 		debug "start in debug mode"
@@ -736,6 +742,8 @@ while true; do
 	esac
 done
 
+debug "run in debug mode"
+
 # Only root can change ip routes and network interfaces
 if [[ $(id -u) != 0 ]]; then
 	echo "$ERROR Script must be run as root."
@@ -753,24 +761,90 @@ case $action in
 		exit 0 ;;
 esac
 
+# parse servername from command-line
+if [[ -v argserver ]]; then
+	debug "parse server from command-line"
+	debug "argserver: $argserver"
+	if [[ $argserver =~ [[:digit:]] ]]; then
+		debug "arg is a number"
+		servername=$(f_list_servers | tail -n+$argserver | head -n1)
+		printf "servername: $servername\n"
+	elif [[ $argserver =~ [[:alpha:]] ]]; then
+		debug "server is a word"
+		# match all name beginning with arg
+		# declare matchlist
+		# debug "matchlist:"
+		nmatch=0
+		while read match; do
+			[[ -z $match ]] && continue
+			p=$((nmatch++))
+			matchlist[$p]=$match
+			debug "matchlist[$p]: ${matchlist[$p]}"
+		done <<< $(f_list_servers | grep -ie "\<$argserver")
+
+		debug "nmatch: $nmatch"
+		# for i in ${!matchlist[@]}; do
+		# 	debug ${matchlist[$i]}
+		# done
+
+		# only one match, found servername
+		if [[ $nmatch == 0 ]]; then
+			echo "can't find server named '$argserver'"
+			exit 1
+		elif [[ $nmatch == 1 ]]; then
+			servername=${matchlist[0]}
+			printf "server: $servername\n"
+		elif [[ $nmatch > 1 ]]; then
+			printf "ambiguous servername. Please select one:\n"
+			select servername in "${matchlist[@]}"; do
+				if [[ ! $servername ]]; then
+					printf "invalid entry. Enter a number [1-$nmatch]:\n"
+					continue
+				else
+					printf "server: $servername\n"
+					break
+				fi
+			done
+		fi
+	else
+		echo "syntax error in servername '$argserver'"
+		exit 1
+	fi
+fi
+
+
 if ! (f_probe_network); then
 	error "network seems to be down"
 	exit 1
 fi
 
-
+# connect to the closest server, based on ping average
 if $auto; then
-	# connect to closest server
-	servername=$(f_get_closest_server)
-	# set protocol if not define on command line
-	[[ -z $protocol ]] && protocol="strong-tcp"
-else
+	if [[ -v servername ]]; then
+		printf "servername is already set. Skip auto mode"
+	else
+		# connect to closest server
+		servername=$(f_get_closest_server)
+		# set protocol if not define on command line
+		[[ -z $protocol ]] && protocol="strong-tcp"
+	fi
+fi
+
+# select server in interactive menu if unset yet
+if [[ ! -v servername ]]; then
 	# ask for server to use
 	servername=$(f_choose_server_from_list)
 	[[ -z $protocol ]] && protocol=$(f_choose_protocol)
 fi
 
-# parse config file
+# default protocol
+[[ ! -v protocol ]] && protocol="strong-tcp"
+
+debug "before config parsing:"
+debug "servername: $servername"
+debug "protocol: $protocol"
+
+# parse config file for openvpn
 vpn_conf=$(mktemp)
 f_make_ovpn_config_file "$servername" "$protocol" > $vpn_conf
 
