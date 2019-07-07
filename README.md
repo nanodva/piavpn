@@ -40,6 +40,7 @@ Required:
 - net-tools
 - unzip
 - openssl
+- ca-certificates
 - dnsutils
 - inetutils-ping
 
