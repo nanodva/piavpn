@@ -7,10 +7,12 @@ Run this at your own risk.
 
 
 Usage:
-==========
+=====
 After installation, to open a VPN tunnel to a PIA server, run:
 	
 	piavpn
+	# or to let piavpn select the closest server
+	piavpn --auto
 
 To let pia select the closest server:
 
@@ -19,16 +21,15 @@ To let pia select the closest server:
 
 At first launch, you'll be prompted for pia user credentials. They will be saved in /etc/piavpn/credentials.d/credentials.
 
-	usage: piavpn [-adhp] [--auto] [--protocol <prot>]
-				  [--debug] [--help]
+	usage: piavpn [options]
 
 	options summary:
-	-a  --auto      automatically connect to closest server
-	-p  --protocol  select <prot> communication protocol.
-					Choices are: tcp, udp, stcp, sudp 
-	-d  --debug     high verbosity
-	-h  --help      show this help message
-
+	    -a  --auto      automatically connect to closest server
+	    -p  --protocol  select <prot> communication protocol.
+	                    choices are: tcp, udp, stcp, sudp
+	                    default is udp
+	    -d  --debug     high verbosity
+	    -h  --help      show this help message
 
 
 
@@ -128,7 +129,7 @@ Do mind:
 
 
 Using Dnsmasq:
-==========
+=============
 Dnsmasq is an easy lightweight dns server.
 
 installing dnsmasq:  
@@ -161,5 +162,4 @@ check it works:
 	# it should return dnsmasq  
 	netstat -lpnt | grep "127.0.0.1:53"
 
-Troubleshootings:
-================
+
