@@ -16,7 +16,7 @@ RUN = $(DESTDIR)/var/run/$(PNAME)
 # install binaries
 welcome:
 	@echo "Aloha"
-	
+
 install:
 	install -d $(BIN)
 	install -m 755 piavpn.sh $(BIN)/piavpn
@@ -24,14 +24,11 @@ install:
 remove: clean
 	rm -f $(BIN)/piavpn
 
-clean:
-	rm -fr $(LIB)
-	rm -fr $(RUN)
-
-uninstall: remove
 purge: remove
 	rm -fr $(ETC)
 
 reinstall: purge install
 
 
+clean:
+	@echo "skip dh_auto_clean"
