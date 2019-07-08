@@ -5,10 +5,12 @@ It is designed for Debian based distro, and is still on work.Run this at your ow
 
 
 Usage:
-==========
+=====
 After installation, to open a VPN tunnel to a PIA server, run:
 	
 	piavpn
+	# or to let piavpn select the closest server
+	piavpn --auto
 
 To let pia select the closest server:
 
@@ -26,8 +28,7 @@ To conect directly to a server:
 At first launch, you'll be prompted for pia user credentials.\
 They will be saved in /etc/piavpn/credentials.d/credentials.
 
-	usage: piavpn [-adhp] [--auto] [--protocol <prot>]
-				  [--debug] [--help]
+	usage: piavpn [options]
 
 	options summary:
 	-a  --auto 				automatically connect to closest server
@@ -39,6 +40,7 @@ They will be saved in /etc/piavpn/credentials.d/credentials.
 							could be a name or number in server list
 	-d  --debug 			high verbosity
 	-h  --help 				show this help message
+
 
 
 Dependencies:
@@ -58,12 +60,18 @@ Suggested:
 
 To manually install dependencies:  
 	
-	apt update  
-	apt install openvpn curl unzip
+	sudo apt update
+	sudo apt install openvpn curl net-tools unzip openssl ca-certificates dnsutils inetutils-ping
+
+or run the automated script
+
+	# depencies are listed in dependencies.txt
+	sudo install_dependencies.sh
 
 you can remove then later with:  
 	
-	apt remove openvpn curl unzip
+	# beware some packages may be required by other packages. APT should warm you. 
+	apt remove openvpn curl unzip ...
 
 be sure to install the latest versions.
 
@@ -98,7 +106,7 @@ Installation from PPA:
 Required:
 - gnupg
 
-Add the repository to APT repositories list
+Add the repository to APT source list:
 
 	# open /etc/apt/sources-list for edition
 	sudo apt edit-sources
@@ -113,7 +121,8 @@ key fingerprint: 90B3FC4D4909D303
 
 	# you need gnupg
 	sudo apt install gnupg
-	# retrieve public key from ubuntu.com keyserver
+	
+	# retrieve PPA public key from ubuntu.com keyserver
 	sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key 90B3FC4D4909D303
 
 install pia-vpn-client
@@ -180,4 +189,3 @@ see it works
 
 
 
-enjoy...
