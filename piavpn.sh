@@ -97,16 +97,50 @@ _init()
 	}
 
 	l_init_servers_data()
+	## Check servers datas file exists and is up to date.
 	{
-		# check server list
+		## servers datas are stored in $SRV_CONF
+		## Initialisation will succeed if
+		##	- servers data is up to date
+		##	- or if updating succeed
+		## return: 0 if initialisation succeed
+		##         1 if failed
+
+		# make servers data file $SRV_CONF if it doesn't exist
 		if [[ ! -f $SRV_CONF ]]; then
-			if (f_update_servers_data); then
-				info "update succeed"
-			else
-				error "update failed"
-				return 1
-			fi
+			debug "generating servers data in $SRV_CONF"
+			f_update_servers_data && return 0
+		# or check servers data are up to date
+		else
+			debug "check servers data update"
+			# get last local data update date
+			last_update=$(grep "Last-Modified" $SRV_CONF | tail -c+16)
+			debug "last servers update: $last_update"
+
+			# query PIA servers for last update date
+			url=${PIA_URL}/openvpn/openvpn-tcp.zip
+			header=$(curl --silent --head $url --time-cond "$last_update")
+			response=$(head -n1 <<< $header)
+			read -r xx status info <<< $response
+			debug "response: %s %s" $status "$info"
+			case $status in
+				200)
+					info "new servers update available"
+					f_update_servers_data && return 0
+					;;
+				304)
+					debug "servers list is up to date"
+					return 0
+					;;
+				*)
+					error "unknown answer code $status"
+					;;
+			esac
 		fi
+
+		error "failed to initialise servers data"
+		return 1
+
 	}
 
 
@@ -563,28 +597,33 @@ f_probe_servers()
 }
 
 f_update_servers_data()
+## Object: Updates servers data and generate $SRV_CONF file.
 {
-	##Automaticaly updates server list
-	## all servers data will come from pia conf.ovpn files
-	## they are provided by PrivateInternetAccess in Zip files
-	## certificates are included in those zip archives
+
+	## All servers datas are extracted from PIA *.ovpn files
+	## PrivateInternetAccess provide these datas in Zip files
+	## Certificates are included in those zip archives
 	## see https://www.privateinternetaccess.com/openvpn
+
+	local response
+
 	fcurlzip()
-	# download and extract zip file
+	## download and extract zip file ( 1st parameter )
 	{
 		zip=$1
 		url=${PIA_URL}/openvpn/${zip}
 		printf "downloading %s\n" $url
 
-		# ask server for file existence
-		# TODO: test modification date (curl -z --time-cond)
+		# check file exists on server
 		header=$(curl --silent --head $url)
 		response=$(head -n1 <<< $header)
-		read -r xx status info <<< $response
-		debug "response: %s %s" $status "$info"
+		read -r xx code info <<< $response
+		debug "response: %s %s" $code "$info"
+		# last_modified date is used to check for new update
+		last_modified=$(grep "Last-Modified" <<< $header | tail -c+16)
 
 		# extract archive and clean
-		if [[ $status == "200" ]]; then
+		if [[ $code == "200" ]]; then
 			options="--silent"
 			$debug && options=""
 			curl $options -o $zip $url
@@ -592,70 +631,74 @@ f_update_servers_data()
 			rm $zip
 			return 0
 		else
-			error "'%s' download failed: %s %s\n" $url $status "$info"
+			error "'%s' download failed: %s %s\n" $url $code "$info"
 			rm $zip
 			return 1
 		fi
 	}
 
 	info "updating servers data"
-
 	
-	# files will be extracted in tmp
-	# concatenate at the end
+	# archives will be extracted in tmp
+	# all datas are parsed from included .ovpn files
+	# servers datas are concatenate in $SRV_CONF at the end
+
 	tmpdir=$(mktemp -d)
 	cd $tmpdir
 
-	# make a file for each server in this folder
+	# make a temporary file for each VPN server in this folder
 	mkdir servers 
 	
-	taglist=("ip" "tcp" "strong" "strong-tcp")
-	# info to read dependis on zip file
+	# parsed datas depend on protocol
+	# each protocol got a dedicated zip files
 	# each expression will be evaluated ( cmd: eval )
+	protocol_list=("ip" "tcp" "strong" "strong-tcp")
 	# get IP and UDP port from ip.zip
-	ip_info='ip=${X}\\nudp_port=${Y}\\n'
+	ip_data='ip=${X}\\nudp_port=${Y}\\n'
 	# get URL and TCP port from tcp.zip
-	tcp_info='url=${X}\\ntcp_port=${Y}\\n'
+	tcp_data='url=${X}\\ntcp_port=${Y}\\n'
 	# get secure UDP port from strong.zip
-	strong_info='udps_port=${Y}\\n'
+	strong_data='udps_port=${Y}\\n'
 	# get secure TCP port from tcp-strong.zip
-	# ('-' is not allowed in name)
-	strong_tcp_info='tcps_port=${Y}\\n'
+	strong_tcp_data='tcps_port=${Y}\\n'
 
-	for tag in ${taglist[@]}; do
-		# loop through zip archives
-		zip="openvpn-${tag}.zip"
+	# loop through zip archives
+	for P in ${protocol_list[@]}; do
+		zip="openvpn-${P}.zip"
 		fcurlzip $zip || return 1
 
-		# useful info to store in server config file
-		infolist=$(echo ${tag}_info | tr '-' '_')
-		taginfo=$(eval echo \$${infolist})
+		# p_data: useful datas to store in server config file
+		# '-' must be replaced to match variables names
+		varname=$(echo ${P}_data | tr '-' '_')
+		p_data=$(eval echo \$${varname})
 
 		while read file; do
 			# make a temp file for each server
 			name=$(basename "$file" .ovpn)
 			datafile="./servers/${name}"
-			# all files will be concatenated in one
+			# all of these files will be concatenated in $SRV_CONF
 			if [[ ! -f "$datafile" ]]; then
 					echo "[$name]" > "$datafile"
 					echo "name=\"${name}\"" >> "$datafile"
 			fi
-
-			# stroe info
-			read -r none X Y <<< $(cat "$file" | grep -m1 ^remote )
-			# evaluation of the pre-evaluation
-			eval printf "$taginfo" >> "$datafile"
+			# needed datas are on the "remote" line
+			read -r none X Y <<< $(grep -m1 ^remote "$file")
+			eval printf -- "$p_data" >> "$datafile"
 			# clean
 			rm "$file"
 		done <<< $(ls *.ovpn)
 	done		
 
-	# concatenate all datas in one file
+	# server.conf stores all VPN servers datas
 	tmp_conf="$server/server.conf"
 	cat > $tmp_conf <<-EOF
 		# this file is auto-generated with ${PNAME}
 		# any changes will be overwritten
+
+		Last-Modified: ${last_modified}
+
 	EOF
+	# concatenate all datas in server.conf
 	while read file; do
 		cat "$file" >> $tmp_conf
 		printf "\n" >> $tmp_conf
@@ -670,7 +713,7 @@ f_update_servers_data()
 
 	# move config file in place
 	mv $tmp_conf $SRV_CONF
-
+	info "successfully update servers datas"
 	# clean
 	rm -r $tmpdir
 	return 0
@@ -699,7 +742,7 @@ _sigint()
 ### MAIN BEGIN ###
 parse_command_line $@ || exit 1
 
-# loop through arguments
+# parse parameters from command line
 while true; do
 	case "$1" in
 	-h | --help )
@@ -747,6 +790,11 @@ debug "run in debug mode"
 # Only root can change ip routes and network interfaces
 if [[ $(id -u) != 0 ]]; then
 	echo "$ERROR Script must be run as root."
+	exit 1
+fi
+
+if ! (f_probe_network); then
+	error "network seems to be down"
 	exit 1
 fi
 
@@ -813,10 +861,6 @@ if [[ -v argserver ]]; then
 fi
 
 
-if ! (f_probe_network); then
-	error "network seems to be down"
-	exit 1
-fi
 
 # connect to the closest server, based on ping average
 if $auto; then
@@ -858,7 +902,7 @@ fi
 
 # connect
 info -t -n "setting tunnel up"
-options="--config $vpn_conf --ping 3 --ping-exit 20 --mute-replay-warnings"
+options="--config $vpn_conf --ping 3 --ping-exit 20 --mute-replay-warnings "
 
 tunnel()
 {
